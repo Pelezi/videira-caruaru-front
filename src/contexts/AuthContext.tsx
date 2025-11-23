@@ -8,7 +8,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<User>;
+  login: (email: string, password: string) => Promise<User | { setPasswordUrl: string }>;
   logout: () => void;
 }
 
@@ -31,8 +31,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     const response = await authService.login(email, password);
-    setUser(response.user);
-    return response.user;
+    // If backend returned a setPasswordUrl (user has no password), bubble it up so the UI can redirect.
+    if (response && typeof response === 'object' && 'setPasswordUrl' in response) {
+      return response as { setPasswordUrl: string };
+    }
+
+    // From here, response is an AuthResponse
+    const auth = response as unknown as { user: User; permission?: any };
+    const mergedUser: User = {
+      ...auth.user,
+      permission: (auth as any).permission ?? auth.user.permission ?? null,
+    };
+    setUser(mergedUser);
+    authService.setCurrentUser(mergedUser);
+    return mergedUser;
   };
 
   const logout = () => {

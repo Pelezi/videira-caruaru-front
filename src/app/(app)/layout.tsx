@@ -1,27 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import Sidebar from '@/components/Sidebar';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import FirstAccessSetupModal from '@/components/FirstAccessSetupModal';
-import { authService } from '@/services/authService';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const [showSetupModal, setShowSetupModal] = useState(false);
-
-  useEffect(() => {
-    const user = authService.getCurrentUser();
-    if (user && user.firstAccess) {
-      setShowSetupModal(true);
-    }
-  }, []);
-
-  const handleSetupComplete = () => {
-    setShowSetupModal(false);
-    // Refresh the page to reload user data
-    window.location.reload();
-  };
 
   return (
     <ProtectedRoute>
@@ -56,8 +39,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {children}
           </div>
         </main>
-        
-        {showSetupModal && <FirstAccessSetupModal onComplete={handleSetupComplete} />}
       </div>
     </ProtectedRoute>
   );

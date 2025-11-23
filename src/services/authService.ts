@@ -1,16 +1,30 @@
 import api, { apiClient } from '@/lib/apiClient';
-import { AuthResponse } from '@/types';
+import { AuthResponse, User } from '@/types';
 
 export const authService = {
-  login: async (email: string, password: string): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>('/users/login', { email, password });
-    if (response.data.token) {
-      apiClient.setToken(response.data.token);
+  login: async (email: string, password: string): Promise<AuthResponse | { setPasswordUrl: string }> => {
+    const response = await api.post<AuthResponse | { setPasswordUrl: string }>('/users/login', { email, password });
+    const data = response.data;
+
+    // If backend returned a setPasswordUrl, return it immediately (no token present)
+    if (data && typeof data === 'object' && 'setPasswordUrl' in data) {
+      return data as { setPasswordUrl: string };
+    }
+
+    // From here we expect an AuthResponse shape
+    const auth = data as AuthResponse;
+    if (auth.token) {
+      apiClient.setToken(auth.token);
       if (typeof window !== 'undefined') {
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+        // Merge top-level permission into the persisted user when present
+        const userToPersist = (auth as any).permission
+          ? { ...auth.user, permission: (auth as any).permission }
+          : auth.user;
+        localStorage.setItem('user', JSON.stringify(userToPersist));
       }
     }
-    return response.data;
+
+    return auth;
   },
 
   logout: () => {
@@ -28,7 +42,7 @@ export const authService = {
     return null;
   },
 
-  setCurrentUser: (user: any) => {
+  setCurrentUser: (user: User | null) => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('user', JSON.stringify(user));
     }

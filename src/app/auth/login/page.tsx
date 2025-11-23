@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import api from '@/lib/apiClient';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -18,13 +19,29 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await login(email, password);
-      router.push('/transactions');
+      const result = await login(email, password);
+      // If backend returned a setPasswordUrl, redirect the user immediately to define password
+      if ((result as any)?.setPasswordUrl) {
+        window.location.href = (result as any).setPasswordUrl;
+        return;
+      }
+      router.push('/report');
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Invalid credentials');
+      const msg = error.response?.data?.message;
+      setError(msg || 'Invalid credentials');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRequestSetPassword = async () => {
+    setError('');
+    try {
+      await api.post('/users/request-set-password', { email });
+      setError('Link enviado. Verifique seu e-mail.');
+    } catch (e) {
+      setError('Falha ao enviar link');
     }
   };
 
@@ -33,7 +50,7 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8 p-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
         <div>
           <h2 className="text-center text-3xl font-bold text-gray-900 dark:text-gray-100">
-            Budget Manager
+            Videira Caruaru
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
             Entrar
@@ -91,7 +108,7 @@ export default function LoginPage() {
           </div>
         </form>
         <div className="mt-6 text-center">
-          <a href="/auth/register" className="inline-block px-4 py-2 text-blue-600 dark:text-blue-400 font-semibold border border-blue-600 dark:border-blue-400 rounded hover:bg-blue-50 dark:hover:bg-blue-900 transition">
+          <a href="/auth/register" className="inline-block px-4 py-2 text-blue-600 dark:text-blue-400 font-semibold border border-blue-600 dark:border-blue-400 rounded hover:bg-blue-50 dark:hover:bg-blue-900 transition mr-2">
             Não tem conta? Cadastre-se
           </a>
         </div>

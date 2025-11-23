@@ -2,8 +2,8 @@ import Providers from '@/components/Providers';
 import './globals.css';
 
 export const metadata = {
-  title: 'Budget Manager',
-  description: 'Manage your budget like a pro with spreadsheet-style interface',
+  title: 'Videira Caruaru',
+  description: 'Landing page e sistema gerencial da Videira Caruaru',
 };
 
 export default function RootLayout({

@@ -30,7 +30,7 @@ class ApiClient {
       (response) => response,
       (error: AxiosError) => {
         const status = error.response?.status;
-        if (status === 401 || status === 403) {
+        if (status === 403) {
           this.clearToken();
           if (typeof window !== 'undefined') {
             window.location.href = '/auth/login';

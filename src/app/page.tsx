@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authService } from '@/services/authService';
+import Dashboard from '@/components/Dashboard';
 
 export default function HomePage() {
   const router = useRouter();
@@ -21,9 +22,7 @@ export default function HomePage() {
       .then(() => {
         setLoading(false);
         const isAuthenticated = authService.isAuthenticated();
-        if (isAuthenticated) {
-          router.push('/transactions');
-        } else {
+        if (!isAuthenticated) {
           router.push('/auth/login');
         }
       })
@@ -33,16 +32,26 @@ export default function HomePage() {
       });
   }, [router]);
 
+  // Avoid performing navigation during render — do it in an effect instead
+  useEffect(() => {
+    if (!loading && !error && authService.isAuthenticated()) {
+      router.push('/report');
+    }
+  }, [loading, error, router]);
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {loading && (
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400"></div>
-      )}
-      {error && (
-        <div className="text-center text-red-600 dark:text-red-400 mt-4">
-          {error}
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400"></div>
         </div>
       )}
+      {!loading && error && (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center text-red-600 dark:text-red-400 mt-4">{error}</div>
+        </div>
+      )}
+
     </div>
   );
 }

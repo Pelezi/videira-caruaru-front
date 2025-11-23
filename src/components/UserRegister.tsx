@@ -47,8 +47,19 @@ const UserRegister: React.FC<UserRegisterProps> = ({ onRegisterSuccess }) => {
       setTimeout(() => {
         router.push('/auth/login');
       }, 1200);
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'Erro ao cadastrar usuário.');
+    } catch (err: unknown) {
+      const extractMessage = (e: unknown) => {
+        if (typeof e === 'string') return e;
+        if (e instanceof Error) return e.message;
+        // Try to read axios-like response shapes safely
+        try {
+            // Try to safely stringify to surface a useful message, but don't use `any`.
+            const text = JSON.stringify(e);
+            if (text && text !== '{}') return text;
+          } catch { /* ignore */ }
+        return 'Erro ao cadastrar usuário.';
+      };
+      setError(extractMessage(err));
     } finally {
       setLoading(false);
     }
@@ -59,7 +70,7 @@ const UserRegister: React.FC<UserRegisterProps> = ({ onRegisterSuccess }) => {
       <div className="max-w-md w-full space-y-8 p-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
         <div>
           <h2 className="text-center text-3xl font-bold text-gray-900 dark:text-gray-100">
-            Budget Manager
+            Videira Caruaru
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
             Cadastro de Usuário

@@ -16,15 +16,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    // Get theme from localStorage or default to light
+    // Defer theme initialization to avoid calling setState synchronously
     const savedTheme = localStorage.getItem('theme') as Theme | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    } else {
-      // Default to light theme instead of system preference
-      setTheme('light');
-    }
+    const id = window.setTimeout(() => {
+      if (savedTheme) setTheme(savedTheme);
+      else setTheme('light');
+      setMounted(true);
+    }, 0);
+    return () => clearTimeout(id);
   }, []);
 
   useEffect(() => {
@@ -55,7 +54,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 export function useTheme() {
   const context = useContext(ThemeContext);
   if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider');
+    return {
+      theme: 'light' as Theme,
+      toggleTheme: () => {},
+    } as ThemeContextType;
   }
   return context;
 }

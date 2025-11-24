@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import api from '@/lib/apiClient';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -108,11 +109,12 @@ export default function LoginPage() {
           </div>
         </form>
         <div className="mt-6 text-center">
-          <a href="/auth/register" className="inline-block px-4 py-2 text-blue-600 dark:text-blue-400 font-semibold border border-blue-600 dark:border-blue-400 rounded hover:bg-blue-50 dark:hover:bg-blue-900 transition mr-2">
-            Não tem conta? Cadastre-se
-          </a>
+          <Link href="/auth/first-access" className="inline-block px-4 py-2 text-blue-600 dark:text-blue-400 font-semibold border border-blue-600 dark:border-blue-400 rounded hover:bg-blue-50 dark:hover:bg-blue-900 transition">
+            Primeiro acesso
+          </Link>
         </div>
       </div>
     </div>
   );
 }
+// First access flow moved to `/auth/first-access` page

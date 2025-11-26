@@ -84,7 +84,7 @@ export default function Sidebar() {
     { href: '/celulas', label: 'Células', icon: <Users size={18} />, matchPrefix: true, require: 'discipulador' },
     { href: '/discipulados', label: 'Discipulados', icon: <Users size={18} />, matchPrefix: true, require: 'discipulador' },
     { href: '/redes', label: 'Redes', icon: <Users size={18} />, matchPrefix: true, require: 'pastor' },
-    { href: '/users', label: 'Usuários', icon: <User size={18} />, matchPrefix: false, require: 'admin' },
+    { href: '/users', label: 'Usuários', icon: <User size={18} />, matchPrefix: false, require: 'discipulador' },
   ];
 
   return (

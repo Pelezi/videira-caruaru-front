@@ -56,7 +56,6 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
   // Validação
   const [touched, setTouched] = useState({
     name: false,
-    celula: false,
     ministryPosition: false,
     email: false,
   });
@@ -187,7 +186,7 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
     setHasSystemAccess(false);
     setIsActive(true);
     setSelectedRoleIds([]);
-    setTouched({ name: false, celula: false, ministryPosition: false, email: false });
+    setTouched({ name: false, ministryPosition: false, email: false });
   };
 
   const formatPhoneNumber = (value: string) => {
@@ -299,18 +298,12 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
     // Marcar todos os campos como touched
     setTouched({ 
       name: true, 
-      celula: true, 
       ministryPosition: true, 
       email: hasSystemAccess 
     });
 
     if (!name.trim()) {
       toast.error('Nome é obrigatório');
-      return;
-    }
-
-    if (!celulaId) {
-      toast.error('Célula é obrigatória');
       return;
     }
 
@@ -518,12 +511,10 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
                   <FormControl 
                     fullWidth 
                     size="small"
-                    error={touched.celula && !celulaId}
                   >
                     <Select
                       value={celulaId ?? ''}
                       onChange={(e) => setCelulaId(e.target.value ? Number(e.target.value) : null)}
-                      onBlur={() => setTouched({ ...touched, celula: true })}
                       className="bg-white dark:bg-gray-800"
                       displayEmpty
                     >

@@ -16,6 +16,7 @@ export default function MembersManagementPage() {
   const [discipulados, setDiscipulados] = useState<Discipulado[]>([]);
   const [redes, setRedes] = useState<Rede[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(false);
 
   // Filters
   const [filterCelulaId, setFilterCelulaId] = useState<number | null>(null);
@@ -79,18 +80,21 @@ export default function MembersManagementPage() {
 
   useEffect(() => {
     const loadMembers = async () => {
+      setLoading(true);
       try {
         const filters: MemberFilters = {};
         // filterCelulaId = 0 significa "sem célula", null significa "todas"
         if (filterCelulaId !== null) filters.celulaId = filterCelulaId;
         if (filterDiscipuladoId) filters.discipuladoId = filterDiscipuladoId;
         if (filterRedeId) filters.redeId = filterRedeId;
-        
+
         const m = await membersService.getAllMembers(filters);
         setMembers(m);
       } catch (e) {
         console.error(e);
         toast.error('Falha ao carregar membros');
+      } finally {
+        setLoading(false);
       }
     };
     loadMembers();
@@ -121,7 +125,7 @@ export default function MembersManagementPage() {
         await membersService.addMember(data.celulaId ?? null, data as Partial<Member> & { name: string });
         toast.success('Membro criado com sucesso');
       }
-      
+
       // Reload members
       const filters: MemberFilters = {};
       if (filterCelulaId !== null) filters.celulaId = filterCelulaId;
@@ -147,7 +151,7 @@ export default function MembersManagementPage() {
     try {
       await membersService.deleteMember(member.celulaId || 0, member.id);
       toast.success('Membro removido da célula');
-      
+
       // Reload members
       const filters: MemberFilters = {};
       if (filterCelulaId !== null) filters.celulaId = filterCelulaId;
@@ -166,13 +170,13 @@ export default function MembersManagementPage() {
 
   return (
     <div className="relative pb-20">
-      <h2 className="text-2xl font-semibold mb-4">Gestão de Membros</h2>
+      <ThemeProvider theme={muiTheme}>
+        <h2 className="text-2xl font-semibold mb-4">Gestão de Membros</h2>
 
-      <div className="mb-6">
-        <label className="block mb-2">Filtros</label>
-        <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-          <div className="w-full sm:w-48">
-            <ThemeProvider theme={muiTheme}>
+        <div className="mb-6">
+          <label className="block mb-2">Filtros</label>
+          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+            <div className="w-full sm:w-48">
               <FormControl fullWidth>
                 <InputLabel id="filter-rede-label" size='small'>Rede</InputLabel>
                 <Select
@@ -191,11 +195,9 @@ export default function MembersManagementPage() {
                   {redes.map(r => (<MenuItem key={r.id} value={String(r.id)}>{r.name}</MenuItem>))}
                 </Select>
               </FormControl>
-            </ThemeProvider>
-          </div>
+            </div>
 
-          <div className="w-full sm:w-48">
-            <ThemeProvider theme={muiTheme}>
+            <div className="w-full sm:w-48">
               <FormControl fullWidth>
                 <InputLabel id="filter-discipulado-label" size='small'>Discipulado</InputLabel>
                 <Select
@@ -219,11 +221,9 @@ export default function MembersManagementPage() {
                     ))}
                 </Select>
               </FormControl>
-            </ThemeProvider>
-          </div>
+            </div>
 
-          <div className="w-full sm:w-48">
-            <ThemeProvider theme={muiTheme}>
+            <div className="w-full sm:w-48">
               <FormControl fullWidth>
                 <InputLabel id="filter-celula-label" size='small'>Célula</InputLabel>
                 <Select
@@ -241,90 +241,96 @@ export default function MembersManagementPage() {
                     .map(c => (<MenuItem key={c.id} value={String(c.id)}>{c.name}</MenuItem>))}
                 </Select>
               </FormControl>
-            </ThemeProvider>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div>
-        <div className="flex items-center mb-3">
-          <h3 className="font-medium">Membros ({members.length})</h3>
-        </div>
-        <ul className="space-y-2">
-          {members.map((m) => (
-            <li 
-              key={m.id} 
-              className={`flex items-center gap-3 border p-2 rounded ${!m.celulaId ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700' : 'bg-white dark:bg-gray-900'}`}
-            >
-              <span className="flex-1">
-                {m.name}
-                {!m.celulaId && <span className="text-xs text-red-600 dark:text-red-400 ml-2 font-semibold">(sem célula)</span>}
-                {m.celula && (
-                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                    - {m.celula.name}
-                  </span>
-                )}
-                {!m.isActive && <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">(desligado)</span>}
-              </span>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => openEditModal(m)} 
-                  aria-label="Editar membro" 
-                  className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
-                >
-                  <FiEdit2 className="h-4 w-4 text-yellow-500" aria-hidden />
-                </button>
-                {m.celulaId && (
-                  <button 
-                    onClick={() => removeMember(m)} 
-                    aria-label="Remover membro da célula" 
+        <div>
+          <div className="flex items-center mb-3">
+            <h3 className="font-medium">Membros ({members.length})</h3>
+          </div>
+          {loading ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+          <ul className="space-y-2">
+            {members.map((m) => (
+              <li
+                key={m.id}
+                className={`flex items-center gap-3 border p-2 rounded ${!m.celulaId ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700' : 'bg-white dark:bg-gray-900'}`}
+              >
+                <span className="flex-1">
+                  {m.name}
+                  {!m.celulaId && <span className="text-xs text-red-600 dark:text-red-400 ml-2 font-semibold">(sem célula)</span>}
+                  {m.celula && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                      - {m.celula.name}
+                    </span>
+                  )}
+                  {!m.isActive && <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">(desligado)</span>}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => openEditModal(m)}
+                    aria-label="Editar membro"
                     className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
                   >
-                    <FiTrash2 className="h-4 w-4 text-red-600" aria-hidden />
+                    <FiEdit2 className="h-4 w-4 text-yellow-500" aria-hidden />
                   </button>
-                )}
+                  {m.celulaId && (
+                    <button
+                      onClick={() => removeMember(m)}
+                      aria-label="Remover membro da célula"
+                      className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                    >
+                      <FiTrash2 className="h-4 w-4 text-red-600" aria-hidden />
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+          )}
+        </div>
+
+        {/* Floating Action Button */}
+        <button
+          onClick={openCreateModal}
+          className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 z-40"
+          aria-label="Adicionar Membro"
+        >
+          <FiPlus className="h-6 w-6" />
+        </button>
+
+        {/* Member Modal */}
+        <MemberModal
+          member={modalMember}
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setModalMember(null);
+          }}
+          onSave={handleModalSave}
+          celulas={celulas}
+        />
+
+        {/* Delete confirmation modal */}
+        {confirmingMember && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-900 p-6 rounded w-11/12 sm:w-96">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold">Confirmação</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Tem certeza que deseja remover <strong>{confirmingMember.name}</strong> da célula? O membro não será excluído, apenas sua associação com a célula será removida.</p>
               </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Floating Action Button */}
-      <button
-        onClick={openCreateModal}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 z-40"
-        aria-label="Adicionar Membro"
-      >
-        <FiPlus className="h-6 w-6" />
-      </button>
-
-      {/* Member Modal */}
-      <MemberModal
-        member={modalMember}
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setModalMember(null);
-        }}
-        onSave={handleModalSave}
-        celulas={celulas}
-      />
-      
-      {/* Delete confirmation modal */}
-      {confirmingMember && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-900 p-6 rounded w-11/12 sm:w-96">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold">Confirmação</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Tem certeza que deseja remover <strong>{confirmingMember.name}</strong> da célula? O membro não será excluído, apenas sua associação com a célula será removida.</p>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button onClick={cancelDelete} className="px-3 py-2 border rounded">Cancelar</button>
-              <button onClick={performDeleteMember} className="px-3 py-2 bg-red-600 text-white rounded">Remover da célula</button>
+              <div className="flex justify-end gap-2">
+                <button onClick={cancelDelete} className="px-3 py-2 border rounded">Cancelar</button>
+                <button onClick={performDeleteMember} className="px-3 py-2 bg-red-600 text-white rounded">Remover da célula</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ThemeProvider>
     </div>
   );
 }

@@ -3,22 +3,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Celula, Member, Discipulado, Rede } from '@/types';
 import { createTheme, FormControl, InputLabel, MenuItem, Select, ThemeProvider } from '@mui/material';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { TimePicker } from '@mui/x-date-pickers/TimePicker';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs, { Dayjs } from 'dayjs';
+import 'dayjs/locale/pt-br';
 import toast from 'react-hot-toast';
 
 interface CelulaModalProps {
   celula: Celula | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { name: string; leaderMemberId?: number; discipuladoId?: number }) => Promise<void>;
+  onSave: (data: { name: string; leaderMemberId?: number; discipuladoId?: number; weekday?: number; time?: string }) => Promise<void>;
   members: Member[];
   discipulados: Discipulado[];
   redes: Rede[];
 }
 
-export default function CelulaModal({ 
-  celula, 
-  isOpen, 
-  onClose, 
+export default function CelulaModal({
+  celula,
+  isOpen,
+  onClose,
   onSave,
   members,
   discipulados,
@@ -34,7 +39,9 @@ export default function CelulaModal({
   const [leaderId, setLeaderId] = useState<number | null>(null);
   const [leaderName, setLeaderName] = useState('');
   const [showLeaderDropdown, setShowLeaderDropdown] = useState(false);
-  
+  const [weekday, setWeekday] = useState<number | null>(null);
+  const [time, setTime] = useState<Dayjs | null>(() => dayjs().hour(19).minute(30));
+
   // Validação
   const [touched, setTouched] = useState({
     name: false,
@@ -109,7 +116,9 @@ export default function CelulaModal({
       setLeaderName(celula.leader?.name || '');
       setLeaderQuery('');
       setDiscipuladoId(celula.discipuladoId ?? null);
-      
+      setWeekday(celula.weekday ?? null);
+      setTime(celula.time ? dayjs(celula.time, 'HH:mm') : dayjs().hour(19).minute(30));
+
       // Encontrar a rede através do discipulado
       if (celula.discipuladoId) {
         const disc = discipulados.find(d => d.id === celula.discipuladoId);
@@ -130,6 +139,8 @@ export default function CelulaModal({
     setLeaderQuery('');
     setLeaderId(null);
     setLeaderName('');
+    setWeekday(null);
+    setTime(dayjs().hour(19).minute(30));
     setTouched({ name: false, discipulado: false });
   };
 
@@ -147,8 +158,20 @@ export default function CelulaModal({
       return;
     }
 
+    if (weekday === null || weekday === undefined) {
+      toast.error('Dia da semana é obrigatório');
+      return;
+    }
+
+    if (!time || !time.isValid()) {
+      toast.error('Horário é obrigatório');
+      return;
+    }
+
     await onSave({
       name,
+      weekday: weekday,
+      time: time.format('HH:mm'),
       leaderMemberId: leaderId || undefined,
       discipuladoId: discipuladoId || undefined,
     });
@@ -165,42 +188,42 @@ export default function CelulaModal({
   };
 
   return (
+
     <div
       className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white dark:bg-gray-900 rounded w-11/12 sm:w-96 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold">{isEditing ? 'Editar Célula' : 'Criar Célula'}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">✕</button>
-        </div>
-
-        <div className="space-y-3">
-          {/* Nome */}
-          <div>
-            <label className="block mb-1 text-sm">Nome *</label>
-            <input
-              placeholder="Nome da célula"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onBlur={() => setTouched({ ...touched, name: true })}
-              className={`border p-2 rounded w-full bg-white dark:bg-gray-800 dark:text-white h-10 ${
-                touched.name && !name.trim() ? 'border-red-500' : ''
-              }`}
-            />
+      <ThemeProvider theme={muiTheme}>
+        <div className="bg-white dark:bg-gray-900 rounded w-11/12 sm:w-96 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-semibold">{isEditing ? 'Editar Célula' : 'Criar Célula'}</h3>
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">✕</button>
           </div>
 
-          {/* Rede */}
-          <div>
-            <ThemeProvider theme={muiTheme}>
+          <div className="space-y-3">
+            {/* Nome */}
+            <div>
+              <label className="block mb-1 text-sm">Nome *</label>
+              <input
+                placeholder="Nome da célula"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onBlur={() => setTouched({ ...touched, name: true })}
+                className={`border p-2 rounded w-full bg-white dark:bg-gray-800 dark:text-white h-10 ${touched.name && !name.trim() ? 'border-red-500' : ''
+                  }`}
+              />
+            </div>
+
+            {/* Rede */}
+            <div>
               <FormControl className="w-full">
                 <InputLabel id="rede-label" size='small'>Rede *</InputLabel>
                 <Select
                   labelId="rede-label"
                   value={redeId ?? ''}
-                  onChange={(e) => { 
-                    setRedeId(e.target.value ? Number(e.target.value) : null); 
-                    setDiscipuladoId(null); 
+                  onChange={(e) => {
+                    setRedeId(e.target.value ? Number(e.target.value) : null);
+                    setDiscipuladoId(null);
                   }}
                   label="Rede"
                   size="small"
@@ -209,13 +232,11 @@ export default function CelulaModal({
                   {redes.map((r) => (<MenuItem key={r.id} value={r.id}>{r.name}</MenuItem>))}
                 </Select>
               </FormControl>
-            </ThemeProvider>
-          </div>
+            </div>
 
-          {/* Discipulado */}
-          <div>
-            <ThemeProvider theme={muiTheme}>
-              <FormControl 
+            {/* Discipulado */}
+            <div>
+              <FormControl
                 className="w-full"
                 error={touched.discipulado && !discipuladoId}
               >
@@ -234,70 +255,118 @@ export default function CelulaModal({
                   ))}
                 </Select>
               </FormControl>
-            </ThemeProvider>
-          </div>
+            </div>
 
-          {/* Líder */}
-          <div>
-            <label className="block mb-1 text-sm">Líder</label>
-            <div ref={leaderDropdownRef} className="relative w-full">
-              <input
-                placeholder="Buscar líder"
-                value={leaderQuery || leaderName}
-                onChange={(e) => { 
-                  setLeaderQuery(e.target.value); 
-                  setLeaderName(''); 
-                  setLeaderId(null); 
-                  setShowLeaderDropdown(true); 
-                }}
-                onFocus={() => setShowLeaderDropdown(true)}
-                className="border p-2 rounded w-full bg-white dark:bg-gray-800 dark:text-white h-10"
-              />
-              {showLeaderDropdown && (
-                <div className="absolute left-0 right-0 bg-white dark:bg-gray-800 border mt-1 rounded max-h-44 overflow-auto z-50">
-                  {members.filter(member => {
-                    const q = (leaderQuery || '').toLowerCase();
-                    if (!q) return true;
-                    return (member.name.toLowerCase().includes(q) || (member.email || '').toLowerCase().includes(q));
-                  }).map(member => (
-                    <div 
-                      key={member.id} 
-                      className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center justify-between" 
-                      onMouseDown={() => { 
-                        setLeaderId(member.id); 
-                        setLeaderName(member.name); 
-                        setLeaderQuery(''); 
-                        setShowLeaderDropdown(false); 
-                      }}
-                    >
-                      <div>
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">{member.name}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{member.email}</div>
+            {/* Líder */}
+            <div>
+              <label className="block mb-1 text-sm">Líder</label>
+              <div ref={leaderDropdownRef} className="relative w-full">
+                <input
+                  placeholder="Buscar líder"
+                  value={leaderQuery || leaderName}
+                  onChange={(e) => {
+                    setLeaderQuery(e.target.value);
+                    setLeaderName('');
+                    setLeaderId(null);
+                    setShowLeaderDropdown(true);
+                  }}
+                  onFocus={() => setShowLeaderDropdown(true)}
+                  className="border p-2 rounded w-full bg-white dark:bg-gray-800 dark:text-white h-10"
+                />
+                {showLeaderDropdown && (
+                  <div className="absolute left-0 right-0 bg-white dark:bg-gray-800 border mt-1 rounded max-h-44 overflow-auto z-50">
+                    {members.filter(member => {
+                      const q = (leaderQuery || '').toLowerCase();
+                      if (!q) return true;
+                      return (member.name.toLowerCase().includes(q) || (member.email || '').toLowerCase().includes(q));
+                    }).map(member => (
+                      <div
+                        key={member.id}
+                        className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center justify-between"
+                        onMouseDown={() => {
+                          setLeaderId(member.id);
+                          setLeaderName(member.name);
+                          setLeaderQuery('');
+                          setShowLeaderDropdown(false);
+                        }}
+                      >
+                        <div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">{member.name}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{member.email}</div>
+                        </div>
+                        <div className="text-xs text-green-600">Selecionar</div>
                       </div>
-                      <div className="text-xs text-green-600">Selecionar</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Dia da Semana */}
+            <div>
+              <FormControl className="w-full">
+                <InputLabel id="weekday-label" size='small'>Dia da Semana *</InputLabel>
+                <Select
+                  labelId="weekday-label"
+                  value={weekday ?? ''}
+                  onChange={(e) => setWeekday(e.target.value ? Number(e.target.value) : null)}
+                  label="Dia da Semana *"
+                  size="small"
+                  className="bg-white dark:bg-gray-800 w-full">
+                  <MenuItem value="">Selecione o dia</MenuItem>
+                  <MenuItem value={0}>Domingo</MenuItem>
+                  <MenuItem value={1}>Segunda-feira</MenuItem>
+                  <MenuItem value={2}>Terça-feira</MenuItem>
+                  <MenuItem value={3}>Quarta-feira</MenuItem>
+                  <MenuItem value={4}>Quinta-feira</MenuItem>
+                  <MenuItem value={5}>Sexta-feira</MenuItem>
+                  <MenuItem value={6}>Sábado</MenuItem>
+                </Select>
+              </FormControl>
+            </div>
+
+            {/* Horário */}
+            <div>
+              <label className="block mb-1 text-sm">Horário *</label>
+              <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br">
+                <TimePicker
+                  value={time}
+                  onChange={(newValue: Dayjs | null) => setTime(newValue)}
+                  format="HH:mm"
+                  ampm={false}
+                  localeText={{
+                    toolbarTitle: 'Selecionar horário',
+                    cancelButtonLabel: 'Cancelar',
+                    okButtonLabel: 'OK',
+                  }}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      size: 'small',
+                      placeholder: '19:30',
+                    },
+                  }}
+                />
+              </LocalizationProvider>
             </div>
           </div>
-        </div>
 
-        <div className="flex justify-end gap-2 mt-6">
-          <button 
-            onClick={onClose} 
-            className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
-          >
-            Cancelar
-          </button>
-          <button 
-            onClick={handleSave} 
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            {isEditing ? 'Salvar' : 'Criar'}
-          </button>
+          <div className="flex justify-end gap-2 mt-6">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSave}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              {isEditing ? 'Salvar' : 'Criar'}
+            </button>
+          </div>
         </div>
-      </div>
+      </ThemeProvider>
     </div>
   );
 }

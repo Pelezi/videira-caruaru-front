@@ -3,6 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { Member, Celula, Ministry, WinnerPath, Role } from '@/types';
 import { createTheme, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent, ThemeProvider, Checkbox, ListItemText, OutlinedInput } from '@mui/material';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs, { Dayjs } from 'dayjs';
+import 'dayjs/locale/pt-br';
 import toast from 'react-hot-toast';
 import { configService } from '@/services/configService';
 import { memberService } from '@/services/memberService';
@@ -26,9 +31,9 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
   const [phone, setPhone] = useState('');
   const [gender, setGender] = useState<string>('');
   const [isBaptized, setIsBaptized] = useState(false);
-  const [baptismDate, setBaptismDate] = useState('');
-  const [birthDate, setBirthDate] = useState('');
-  const [registerDate, setRegisterDate] = useState('');
+  const [baptismDate, setBaptismDate] = useState<Dayjs | null>(null);
+  const [birthDate, setBirthDate] = useState<Dayjs | null>(null);
+  const [registerDate, setRegisterDate] = useState<Dayjs | null>(null);
   const [spouseId, setSpouseId] = useState<number | null>(null);
   const [ministryPositionId, setMinistryPositionId] = useState<number | null>(null);
   const [winnerPathId, setWinnerPathId] = useState<number | null>(null);
@@ -136,9 +141,9 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
         setPhone(member.phone ?? '');
         setGender(member.gender ?? '');
         setIsBaptized(member.isBaptized ?? false);
-        setBaptismDate(member.baptismDate ? isoToDateBR(member.baptismDate) : '');
-        setBirthDate(member.birthDate ? isoToDateBR(member.birthDate) : '');
-        setRegisterDate(member.registerDate ? isoToDateBR(member.registerDate) : '');
+        setBaptismDate(member.baptismDate ? dayjs(member.baptismDate) : null);
+        setBirthDate(member.birthDate ? dayjs(member.birthDate) : null);
+        setRegisterDate(member.registerDate ? dayjs(member.registerDate) : null);
         setSpouseId(member.spouseId ?? null);
         setMinistryPositionId(member.ministryPositionId ?? null);
         setWinnerPathId(member.winnerPathId ?? null);
@@ -169,9 +174,9 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
     setPhone('');
     setGender('');
     setIsBaptized(false);
-    setBaptismDate('');
-    setBirthDate('');
-    setRegisterDate('');
+    setBaptismDate(null);
+    setBirthDate(null);
+    setRegisterDate(null);
     setSpouseId(null);
     setMinistryPositionId(null);
     setWinnerPathId(null);
@@ -219,41 +224,11 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
     return `${limited.slice(0, 5)}-${limited.slice(5)}`;
   };
 
-  // Converter data ISO (yyyy-mm-dd) para dd/mm/yyyy
-  const isoToDateBR = (isoDate: string): string => {
-    if (!isoDate) return '';
-    const date = isoDate.split('T')[0]; // yyyy-mm-dd
-    const [year, month, day] = date.split('-');
-    return `${day}/${month}/${year}`;
-  };
 
-  // Converter data BR (dd/mm/yyyy) para ISO (yyyy-mm-dd)
-  const dateBRToISO = (dateBR: string): string => {
-    if (!dateBR) return '';
-    const cleaned = dateBR.replace(/\D/g, '');
-    if (cleaned.length !== 8) return '';
-    const day = cleaned.slice(0, 2);
-    const month = cleaned.slice(2, 4);
-    const year = cleaned.slice(4, 8);
-    return `${year}-${month}-${day}`;
-  };
-
-  // Formatar data para dd/mm/yyyy
-  const formatDate = (value: string): string => {
-    const numbers = value.replace(/\D/g, '');
-    const limited = numbers.slice(0, 8);
-    if (limited.length <= 2) {
-      return limited;
-    } else if (limited.length <= 4) {
-      return `${limited.slice(0, 2)}/${limited.slice(2)}`;
-    } else {
-      return `${limited.slice(0, 2)}/${limited.slice(2, 4)}/${limited.slice(4)}`;
-    }
-  };
 
   const fetchAddressByCep = async (cep: string) => {
     const cleanCep = cep.replace(/\D/g, '');
-    
+
     if (cleanCep.length !== 8) {
       return;
     }
@@ -284,7 +259,7 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
   const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatCep(e.target.value);
     setZipCode(formatted);
-    
+
     // Buscar endereço quando CEP estiver completo
     if (formatted.replace(/\D/g, '').length === 8) {
       fetchAddressByCep(formatted);
@@ -298,10 +273,10 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
 
   const handleSave = async () => {
     // Marcar todos os campos como touched
-    setTouched({ 
-      name: true, 
-      ministryPosition: true, 
-      email: hasSystemAccess 
+    setTouched({
+      name: true,
+      ministryPosition: true,
+      email: hasSystemAccess
     });
 
     if (!name.trim()) {
@@ -327,9 +302,9 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
       phone: phone || undefined,
       gender: gender as any || undefined,
       isBaptized,
-      baptismDate: baptismDate ? dateBRToISO(baptismDate) : undefined,
-      birthDate: birthDate ? dateBRToISO(birthDate) : undefined,
-      registerDate: registerDate ? dateBRToISO(registerDate) : undefined,
+      baptismDate: baptismDate ? baptismDate.format('YYYY-MM-DD') : undefined,
+      birthDate: birthDate ? birthDate.format('YYYY-MM-DD') : undefined,
+      registerDate: registerDate ? registerDate.format('YYYY-MM-DD') : undefined,
       spouseId: maritalStatus === 'MARRIED' ? (spouseId || undefined) : null,
       ministryPositionId: ministryPositionId || undefined,
       winnerPathId: winnerPathId || undefined,
@@ -400,63 +375,62 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
       className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 overflow-y-auto"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white dark:bg-gray-900 rounded w-11/12 max-w-4xl my-8 max-h-[90vh] flex flex-col">
-        <div className="p-6 flex items-center justify-between border-b dark:border-gray-700">
-          <h3 className="text-xl font-semibold">{isEditing ? 'Editar Membro' : 'Adicionar Novo Membro'}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">✕</button>
-        </div>
+      <ThemeProvider theme={muiTheme}>
+        <div className="bg-white dark:bg-gray-900 rounded w-11/12 max-w-4xl my-8 max-h-[90vh] flex flex-col">
+          <div className="p-6 flex items-center justify-between border-b dark:border-gray-700">
+            <h3 className="text-xl font-semibold">{isEditing ? 'Editar Membro' : 'Adicionar Novo Membro'}</h3>
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">✕</button>
+          </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {/* DADOS PESSOAIS */}
-          <div className="border-b pb-3">
-            <h4 className="font-medium mb-3 text-sm text-gray-600 dark:text-gray-400">DADOS PESSOAIS</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block mb-1 text-sm">Nome *</label>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onBlur={() => setTouched({ ...touched, name: true })}
-                  className={`border p-2 rounded w-full bg-white dark:bg-gray-800 dark:text-white h-10 ${
-                    touched.name && !name.trim() ? 'border-red-500' : ''
-                  }`}
-                  placeholder="Nome completo"
-                />
-              </div>
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {/* DADOS PESSOAIS */}
+            <div className="border-b pb-3">
+              <h4 className="font-medium mb-3 text-sm text-gray-600 dark:text-gray-400">DADOS PESSOAIS</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block mb-1 text-sm">Nome *</label>
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    onBlur={() => setTouched({ ...touched, name: true })}
+                    className={`border p-2 rounded w-full bg-white dark:bg-gray-800 dark:text-white h-10 ${touched.name && !name.trim() ? 'border-red-500' : ''
+                      }`}
+                    placeholder="Nome completo"
+                  />
+                </div>
 
-              <div>
-                <label className="block mb-1 text-sm">Sexo</label>
-                <select
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value)}
-                  className="w-full border p-2 rounded bg-white dark:bg-gray-800 h-10"
-                >
-                  <option value="">Selecione</option>
-                  <option value="MALE">Masculino</option>
-                  <option value="FEMALE">Feminino</option>
-                  <option value="OTHER">Outro</option>
-                </select>
-              </div>
+                <div>
+                  <label className="block mb-1 text-sm">Sexo</label>
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                    className="w-full border p-2 rounded bg-white dark:bg-gray-800 h-10"
+                  >
+                    <option value="">Selecione</option>
+                    <option value="MALE">Masculino</option>
+                    <option value="FEMALE">Feminino</option>
+                    <option value="OTHER">Outro</option>
+                  </select>
+                </div>
 
-              <div>
-                <label className="block mb-1 text-sm">Estado Civil</label>
-                <select
-                  value={maritalStatus}
-                  onChange={(e) => setMaritalStatus(e.target.value)}
-                  className="w-full border p-2 rounded bg-white dark:bg-gray-800 h-10"
-                >
-                  <option value="SINGLE">Solteiro(a)</option>
-                  <option value="COHABITATING">Amasiados</option>
-                  <option value="MARRIED">Casado(a)</option>
-                  <option value="DIVORCED">Divorciado(a)</option>
-                  <option value="WIDOWED">Viúvo(a)</option>
-                </select>
-              </div>
+                <div>
+                  <label className="block mb-1 text-sm">Estado Civil</label>
+                  <select
+                    value={maritalStatus}
+                    onChange={(e) => setMaritalStatus(e.target.value)}
+                    className="w-full border p-2 rounded bg-white dark:bg-gray-800 h-10"
+                  >
+                    <option value="SINGLE">Solteiro(a)</option>
+                    <option value="COHABITATING">Amasiados</option>
+                    <option value="MARRIED">Casado(a)</option>
+                    <option value="DIVORCED">Divorciado(a)</option>
+                    <option value="WIDOWED">Viúvo(a)</option>
+                  </select>
+                </div>
 
-              {maritalStatus === 'MARRIED' && (
-                <div className="md:col-span-1">
-                  <label className="block mb-1 text-sm">Cônjuge</label>
-                  <ThemeProvider theme={muiTheme}>
+                {maritalStatus === 'MARRIED' && (
+                  <div className="md:col-span-1">
+                    <label className="block mb-1 text-sm">Cônjuge</label>
                     <FormControl fullWidth size="small">
                       <Select
                         value={spouseId ?? ''}
@@ -472,46 +446,55 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
                           ))}
                       </Select>
                     </FormControl>
-                  </ThemeProvider>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block mb-1 text-sm">Data de Nascimento</label>
+                  <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br">
+                    <DatePicker
+                      value={birthDate}
+                      onChange={(newValue: Dayjs | null) => setBirthDate(newValue)}
+                      format="DD/MM/YYYY"
+                      localeText={{
+                        toolbarTitle: 'Selecionar data',
+                        cancelButtonLabel: 'Cancelar',
+                        okButtonLabel: 'OK',
+                      }}
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          size: 'small',
+                          placeholder: 'dd/mm/aaaa',
+                        },
+                      }}
+                    />
+                  </LocalizationProvider>
                 </div>
-              )}
-
-              <div>
-                <label className="block mb-1 text-sm">Data de Nascimento</label>
-                <input
-                  type="text"
-                  value={birthDate}
-                  onChange={(e) => setBirthDate(formatDate(e.target.value))}
-                  className="border p-2 rounded w-full bg-white dark:bg-gray-800 h-10"
-                  placeholder="dd/mm/aaaa"
-                  maxLength={10}
-                />
-              </div>
 
 
-              <div>
-                <label className="block mb-1 text-sm">Telefone</label>
-                <input
-                  value={phone}
-                  onChange={handlePhoneChange}
-                  className="border p-2 rounded w-full bg-white dark:bg-gray-800 h-10"
-                  placeholder="(11) 99999-9999"
-                  maxLength={15}
-                />
+                <div>
+                  <label className="block mb-1 text-sm">Telefone</label>
+                  <input
+                    value={phone}
+                    onChange={handlePhoneChange}
+                    className="border p-2 rounded w-full bg-white dark:bg-gray-800 h-10"
+                    placeholder="(11) 99999-9999"
+                    maxLength={15}
+                  />
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* DADOS ECLESIÁSTICOS */}
-          <div className="border-b pb-3">
-            <h4 className="font-medium mb-3 text-sm text-gray-600 dark:text-gray-400">DADOS ECLESIÁSTICOS</h4>
+            {/* DADOS ECLESIÁSTICOS */}
+            <div className="border-b pb-3">
+              <h4 className="font-medium mb-3 text-sm text-gray-600 dark:text-gray-400">DADOS ECLESIÁSTICOS</h4>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block mb-1 text-sm">Célula</label>
-                <ThemeProvider theme={muiTheme}>
-                  <FormControl 
-                    fullWidth 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block mb-1 text-sm">Célula</label>
+                  <FormControl
+                    fullWidth
                     size="small"
                   >
                     <Select
@@ -526,13 +509,11 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
                       ))}
                     </Select>
                   </FormControl>
-                </ThemeProvider>
-              </div>
-              <div>
-                <label className="block mb-1 text-sm">Cargo Ministerial *</label>
-                <ThemeProvider theme={muiTheme}>
-                  <FormControl 
-                    fullWidth 
+                </div>
+                <div>
+                  <label className="block mb-1 text-sm">Cargo Ministerial *</label>
+                  <FormControl
+                    fullWidth
                     size="small"
                     error={touched.ministryPosition && !ministryPositionId}
                   >
@@ -549,44 +530,51 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
                       ))}
                     </Select>
                   </FormControl>
-                </ThemeProvider>
-              </div>
-
-              <div>
-                <label className="block mb-1 text-sm">É batizado?</label>
-                <label htmlFor="isBaptized" className="border rounded p-2 flex items-center justify-between bg-gray-50 dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors">
-                  <span className="text-sm font-medium"></span>
-                  <div className="relative inline-block w-12 h-6">
-                    <input
-                      type="checkbox"
-                      checked={isBaptized}
-                      onChange={(e) => setIsBaptized(e.target.checked)}
-                      id="isBaptized"
-                      className="sr-only peer"
-                    />
-                    <span className="absolute inset-0 bg-gray-300 dark:bg-gray-600 rounded-full transition-all duration-300 ease-in-out peer-checked:bg-blue-600"></span>
-                    <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300 ease-in-out peer-checked:translate-x-6 peer-checked:shadow-md"></span>
-                  </div>
-                </label>
-              </div>
-
-              {isBaptized && (
-                <div>
-                  <label className="block mb-1 text-sm">Data de Batismo</label>
-                  <input
-                    type="text"
-                    value={baptismDate}
-                    onChange={(e) => setBaptismDate(formatDate(e.target.value))}
-                    className="border p-2 rounded w-full bg-white dark:bg-gray-800 h-10"
-                    placeholder="dd/mm/aaaa"
-                    maxLength={10}
-                  />
                 </div>
-              )}
 
-              <div>
-                <label className="block mb-1 text-sm">Trilho do Vencedor</label>
-                <ThemeProvider theme={muiTheme}>
+                <div>
+                  <label className="block mb-1 text-sm">É batizado?</label>
+                  <label htmlFor="isBaptized" className="border rounded p-2 flex items-center justify-between bg-gray-50 dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors">
+                    <span className="text-sm font-medium"></span>
+                    <div className="relative inline-block w-12 h-6">
+                      <input
+                        type="checkbox"
+                        checked={isBaptized}
+                        onChange={(e) => setIsBaptized(e.target.checked)}
+                        id="isBaptized"
+                        className="sr-only peer"
+                      />
+                      <span className="absolute inset-0 bg-gray-300 dark:bg-gray-600 rounded-full transition-all duration-300 ease-in-out peer-checked:bg-blue-600"></span>
+                      <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300 ease-in-out peer-checked:translate-x-6 peer-checked:shadow-md"></span>
+                    </div>
+                  </label>
+                </div>
+
+                {isBaptized && (
+                  <div>
+                    <label className="block mb-1 text-sm">Data de Batismo</label>
+                    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br">
+                      <DatePicker
+                        value={baptismDate}
+                        onChange={(newValue: Dayjs | null) => setBaptismDate(newValue)}
+                        format="DD/MM/YYYY"                          localeText={{
+                            toolbarTitle: 'Selecionar data',
+                            cancelButtonLabel: 'Cancelar',
+                            okButtonLabel: 'OK',
+                          }}                        slotProps={{
+                          textField: {
+                            fullWidth: true,
+                            size: 'small',
+                            placeholder: 'dd/mm/aaaa',
+                          },
+                        }}
+                      />
+                    </LocalizationProvider>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block mb-1 text-sm">Trilho do Vencedor</label>
                   <FormControl fullWidth size="small">
                     <Select
                       value={winnerPathId ?? ''}
@@ -600,12 +588,10 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
                       ))}
                     </Select>
                   </FormControl>
-                </ThemeProvider>
-              </div>
+                </div>
 
-              <div className="md:col-span-2">
-                <label className="block mb-1 text-sm">Funções</label>
-                <ThemeProvider theme={muiTheme}>
+                <div className="md:col-span-2">
+                  <label className="block mb-1 text-sm">Funções</label>
                   <FormControl fullWidth size="small">
                     <Select<number[]>
                       multiple
@@ -641,243 +627,251 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
                       ))}
                     </Select>
                   </FormControl>
-                </ThemeProvider>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Selecione uma ou mais funções para este membro
-                </p>
-              </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Selecione uma ou mais funções para este membro
+                  </p>
+                </div>
 
-              <div>
-                <label className="block mb-1 text-sm">Apto para ser anfitrião?</label>
-                <label htmlFor="canBeHost" className="border rounded p-2 flex items-center justify-between bg-gray-50 dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors">
-                  <span className="text-sm font-medium"></span>
-                  <div className="relative inline-block w-12 h-6">
-                    <input
-                      type="checkbox"
-                      checked={canBeHost}
-                      onChange={(e) => setCanBeHost(e.target.checked)}
-                      id="canBeHost"
-                      className="sr-only peer"
+                <div>
+                  <label className="block mb-1 text-sm">Apto para ser anfitrião?</label>
+                  <label htmlFor="canBeHost" className="border rounded p-2 flex items-center justify-between bg-gray-50 dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors">
+                    <span className="text-sm font-medium"></span>
+                    <div className="relative inline-block w-12 h-6">
+                      <input
+                        type="checkbox"
+                        checked={canBeHost}
+                        onChange={(e) => setCanBeHost(e.target.checked)}
+                        id="canBeHost"
+                        className="sr-only peer"
+                      />
+                      <span className="absolute inset-0 bg-gray-300 dark:bg-gray-600 rounded-full transition-all duration-300 ease-in-out peer-checked:bg-blue-600"></span>
+                      <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300 ease-in-out peer-checked:translate-x-6 peer-checked:shadow-md"></span>
+                    </div>
+                  </label>
+                </div>
+
+
+                <div>
+                  <label className="block mb-1 text-sm">Data de Ingresso</label>
+                  <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br">
+                    <DatePicker
+                      value={registerDate}
+                      onChange={(newValue: Dayjs | null) => setRegisterDate(newValue)}
+                      format="DD/MM/YYYY"                      localeText={{
+                        toolbarTitle: 'Selecionar data',
+                        cancelButtonLabel: 'Cancelar',
+                        okButtonLabel: 'OK',
+                      }}                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          size: 'small',
+                          placeholder: 'dd/mm/aaaa',
+                        },
+                      }}
                     />
-                    <span className="absolute inset-0 bg-gray-300 dark:bg-gray-600 rounded-full transition-all duration-300 ease-in-out peer-checked:bg-blue-600"></span>
-                    <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300 ease-in-out peer-checked:translate-x-6 peer-checked:shadow-md"></span>
-                  </div>
-                </label>
-              </div>
-
-
-              <div>
-                <label className="block mb-1 text-sm">Data de Ingresso</label>
-                <input
-                  type="text"
-                  value={registerDate}
-                  onChange={(e) => setRegisterDate(formatDate(e.target.value))}
-                  className="border p-2 rounded w-full bg-white dark:bg-gray-800 h-10"
-                  placeholder="dd/mm/aaaa"
-                  maxLength={10}
-                />
+                  </LocalizationProvider>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* ENDEREÇO */}
-          <div className="border-b pb-3">
-            <h4 className="font-medium mb-3 text-sm text-gray-600 dark:text-gray-400">ENDEREÇO</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block mb-1 text-sm">País</label>
-                <select
-                  value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  className="w-full border p-2 rounded bg-white dark:bg-gray-800 h-10"
-                >
-                  <option value="Brasil">Brasil</option>
-                </select>
-              </div>
+            {/* ENDEREÇO */}
+            <div className="border-b pb-3">
+              <h4 className="font-medium mb-3 text-sm text-gray-600 dark:text-gray-400">ENDEREÇO</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block mb-1 text-sm">País</label>
+                  <select
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    className="w-full border p-2 rounded bg-white dark:bg-gray-800 h-10"
+                  >
+                    <option value="Brasil">Brasil</option>
+                  </select>
+                </div>
 
-              <div>
-                <label className="block mb-1 text-sm">CEP</label>
-                <div className="relative">
+                <div>
+                  <label className="block mb-1 text-sm">CEP</label>
+                  <div className="relative">
+                    <input
+                      value={zipCode}
+                      onChange={handleCepChange}
+                      className="border p-2 rounded w-full bg-white dark:bg-gray-800 h-10"
+                      placeholder="12345-678"
+                      maxLength={9}
+                    />
+                    {loadingCep && (
+                      <div className="absolute right-2 top-2">
+                        <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block mb-1 text-sm">Rua</label>
                   <input
-                    value={zipCode}
-                    onChange={handleCepChange}
+                    value={street}
+                    onChange={(e) => setStreet(e.target.value)}
                     className="border p-2 rounded w-full bg-white dark:bg-gray-800 h-10"
-                    placeholder="12345-678"
-                    maxLength={9}
                   />
-                  {loadingCep && (
-                    <div className="absolute right-2 top-2">
-                      <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                </div>
+
+                <div>
+                  <label className="block mb-1 text-sm">Número</label>
+                  <input
+                    value={streetNumber}
+                    onChange={(e) => setStreetNumber(e.target.value)}
+                    className="border p-2 rounded w-full bg-white dark:bg-gray-800 h-10"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-1 text-sm">Bairro</label>
+                  <input
+                    value={neighborhood}
+                    onChange={(e) => setNeighborhood(e.target.value)}
+                    className="border p-2 rounded w-full bg-white dark:bg-gray-800 h-10"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-1 text-sm">Cidade</label>
+                  <input
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    className="border p-2 rounded w-full bg-white dark:bg-gray-800 h-10"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-1 text-sm">Complemento</label>
+                  <input
+                    value={complement}
+                    onChange={(e) => setComplement(e.target.value)}
+                    className="border p-2 rounded w-full bg-white dark:bg-gray-800 h-10"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-1 text-sm">UF</label>
+                  <select
+                    value={state}
+                    onChange={(e) => setState(e.target.value)}
+                    className="w-full border p-2 rounded bg-white dark:bg-gray-800 h-10"
+                  >
+                    <option value="">Selecione</option>
+                    <option value="AC">AC</option>
+                    <option value="AL">AL</option>
+                    <option value="AP">AP</option>
+                    <option value="AM">AM</option>
+                    <option value="BA">BA</option>
+                    <option value="CE">CE</option>
+                    <option value="DF">DF</option>
+                    <option value="ES">ES</option>
+                    <option value="GO">GO</option>
+                    <option value="MA">MA</option>
+                    <option value="MT">MT</option>
+                    <option value="MS">MS</option>
+                    <option value="MG">MG</option>
+                    <option value="PA">PA</option>
+                    <option value="PB">PB</option>
+                    <option value="PR">PR</option>
+                    <option value="PE">PE</option>
+                    <option value="PI">PI</option>
+                    <option value="RJ">RJ</option>
+                    <option value="RN">RN</option>
+                    <option value="RS">RS</option>
+                    <option value="RO">RO</option>
+                    <option value="RR">RR</option>
+                    <option value="SC">SC</option>
+                    <option value="SP">SP</option>
+                    <option value="SE">SE</option>
+                    <option value="TO">TO</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* DADOS DE ACESSO */}
+            <div className="border-b pb-3">
+              <h4 className="font-medium mb-3 text-sm text-gray-600 dark:text-gray-400">DADOS DE ACESSO</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block mb-1 text-sm">
+                    Email {hasSystemAccess && '*'}
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onBlur={() => setTouched({ ...touched, email: true })}
+                    className={`border p-2 rounded w-full bg-white dark:bg-gray-800 h-10 ${hasSystemAccess && touched.email && !email.trim() ? 'border-red-500' : ''
+                      }`}
+                    placeholder="email@example.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-1 text-sm">Acesso ao sistema</label>
+                  <label htmlFor="hasSystemAccess" className="border rounded p-2 flex items-center justify-between bg-gray-50 dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors">
+                    <span className="text-sm font-medium"></span>
+                    <div className="relative inline-block w-12 h-6">
+                      <input
+                        type="checkbox"
+                        checked={hasSystemAccess}
+                        onChange={(e) => setHasSystemAccess(e.target.checked)}
+                        id="hasSystemAccess"
+                        className="sr-only peer"
+                      />
+                      <span className="absolute inset-0 bg-gray-300 dark:bg-gray-600 rounded-full transition-all duration-300 ease-in-out peer-checked:bg-blue-600"></span>
+                      <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300 ease-in-out peer-checked:translate-x-6 peer-checked:shadow-md"></span>
                     </div>
+                  </label>
+                  {hasSystemAccess && (
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                      Um convite será enviado por email para criar a senha de acesso ao sistema
+                    </p>
                   )}
                 </div>
               </div>
-
-              <div>
-                <label className="block mb-1 text-sm">Rua</label>
-                <input
-                  value={street}
-                  onChange={(e) => setStreet(e.target.value)}
-                  className="border p-2 rounded w-full bg-white dark:bg-gray-800 h-10"
-                />
-              </div>
-
-              <div>
-                <label className="block mb-1 text-sm">Número</label>
-                <input
-                  value={streetNumber}
-                  onChange={(e) => setStreetNumber(e.target.value)}
-                  className="border p-2 rounded w-full bg-white dark:bg-gray-800 h-10"
-                />
-              </div>
-
-              <div>
-                <label className="block mb-1 text-sm">Bairro</label>
-                <input
-                  value={neighborhood}
-                  onChange={(e) => setNeighborhood(e.target.value)}
-                  className="border p-2 rounded w-full bg-white dark:bg-gray-800 h-10"
-                />
-              </div>
-
-              <div>
-                <label className="block mb-1 text-sm">Cidade</label>
-                <input
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  className="border p-2 rounded w-full bg-white dark:bg-gray-800 h-10"
-                />
-              </div>
-
-              <div>
-                <label className="block mb-1 text-sm">Complemento</label>
-                <input
-                  value={complement}
-                  onChange={(e) => setComplement(e.target.value)}
-                  className="border p-2 rounded w-full bg-white dark:bg-gray-800 h-10"
-                />
-              </div>
-
-              <div>
-                <label className="block mb-1 text-sm">UF</label>
-                <select
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
-                  className="w-full border p-2 rounded bg-white dark:bg-gray-800 h-10"
-                >
-                  <option value="">Selecione</option>
-                  <option value="AC">AC</option>
-                  <option value="AL">AL</option>
-                  <option value="AP">AP</option>
-                  <option value="AM">AM</option>
-                  <option value="BA">BA</option>
-                  <option value="CE">CE</option>
-                  <option value="DF">DF</option>
-                  <option value="ES">ES</option>
-                  <option value="GO">GO</option>
-                  <option value="MA">MA</option>
-                  <option value="MT">MT</option>
-                  <option value="MS">MS</option>
-                  <option value="MG">MG</option>
-                  <option value="PA">PA</option>
-                  <option value="PB">PB</option>
-                  <option value="PR">PR</option>
-                  <option value="PE">PE</option>
-                  <option value="PI">PI</option>
-                  <option value="RJ">RJ</option>
-                  <option value="RN">RN</option>
-                  <option value="RS">RS</option>
-                  <option value="RO">RO</option>
-                  <option value="RR">RR</option>
-                  <option value="SC">SC</option>
-                  <option value="SP">SP</option>
-                  <option value="SE">SE</option>
-                  <option value="TO">TO</option>
-                </select>
-              </div>
             </div>
+
+            {/* Status Ativo/Desligado - só na edição */}
+            {isEditing && (
+              <div className="border-b pb-3">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleToggleActive}
+                    className={`px-4 py-2 rounded font-medium ${isActive
+                      ? 'bg-red-600 hover:bg-red-700 text-white'
+                      : 'bg-green-600 hover:bg-green-700 text-white'
+                      }`}
+                  >
+                    {isActive ? 'Desligar Pessoa' : 'Reativar Pessoa'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Botões de ação - sticky e full width */}
           </div>
 
-          {/* DADOS DE ACESSO */}
-          <div className="border-b pb-3">
-            <h4 className="font-medium mb-3 text-sm text-gray-600 dark:text-gray-400">DADOS DE ACESSO</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block mb-1 text-sm">
-                  Email {hasSystemAccess && '*'}
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onBlur={() => setTouched({ ...touched, email: true })}
-                  className={`border p-2 rounded w-full bg-white dark:bg-gray-800 h-10 ${
-                    hasSystemAccess && touched.email && !email.trim() ? 'border-red-500' : ''
-                  }`}
-                  placeholder="email@example.com"
-                />
-              </div>
-
-              <div>
-                <label className="block mb-1 text-sm">Acesso ao sistema</label>
-                <label htmlFor="hasSystemAccess" className="border rounded p-2 flex items-center justify-between bg-gray-50 dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors">
-                  <span className="text-sm font-medium"></span>
-                  <div className="relative inline-block w-12 h-6">
-                    <input
-                      type="checkbox"
-                      checked={hasSystemAccess}
-                      onChange={(e) => setHasSystemAccess(e.target.checked)}
-                      id="hasSystemAccess"
-                      className="sr-only peer"
-                    />
-                    <span className="absolute inset-0 bg-gray-300 dark:bg-gray-600 rounded-full transition-all duration-300 ease-in-out peer-checked:bg-blue-600"></span>
-                    <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300 ease-in-out peer-checked:translate-x-6 peer-checked:shadow-md"></span>
-                  </div>
-                </label>
-                {hasSystemAccess && (
-                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                    Um convite será enviado por email para criar a senha de acesso ao sistema
-                  </p>
-                )}
-              </div>
-            </div>
+          <div className="sticky bottom-0 bg-white dark:bg-gray-900 border-t dark:border-gray-700 p-6 flex flex-col gap-2">
+            <button
+              onClick={handleSave}
+              className="w-full px-4 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+            >
+              {isEditing ? 'Salvar' : 'Criar Membro'}
+            </button>
+            <button
+              onClick={onClose}
+              className="w-full px-4 py-3 border rounded hover:bg-gray-100 dark:hover:bg-gray-800 font-medium"
+            >
+              Cancelar
+            </button>
           </div>
-
-          {/* Status Ativo/Desligado - só na edição */}
-          {isEditing && (
-            <div className="border-b pb-3">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleToggleActive}
-                  className={`px-4 py-2 rounded font-medium ${isActive
-                    ? 'bg-red-600 hover:bg-red-700 text-white'
-                    : 'bg-green-600 hover:bg-green-700 text-white'
-                    }`}
-                >
-                  {isActive ? 'Desligar Pessoa' : 'Reativar Pessoa'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Botões de ação - sticky e full width */}
         </div>
-
-        <div className="sticky bottom-0 bg-white dark:bg-gray-900 border-t dark:border-gray-700 p-6 flex flex-col gap-2">
-          <button
-            onClick={handleSave}
-            className="w-full px-4 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
-          >
-            {isEditing ? 'Salvar' : 'Criar Membro'}
-          </button>
-          <button
-            onClick={onClose}
-            className="w-full px-4 py-3 border rounded hover:bg-gray-100 dark:hover:bg-gray-800 font-medium"
-          >
-            Cancelar
-          </button>
-        </div>
-      </div>
+      </ThemeProvider>
     </div>
   );
 }

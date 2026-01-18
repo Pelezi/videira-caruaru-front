@@ -16,6 +16,7 @@ import { Celula, Discipulado, Member, Rede } from '@/types';
 export default function RedesPage() {
   const [redes, setRedes] = useState<Rede[]>([]);
   const [users, setUsers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(false);
 
   // filters
   const [filterName, setFilterName] = useState('');
@@ -57,6 +58,7 @@ export default function RedesPage() {
   const [editingRedeId, setEditingRedeId] = useState<number | null>(null);
 
   const load = async () => {
+    setLoading(true);
     try {
       const r = await redesService.getRedes();
       setRedes(r || []);
@@ -72,6 +74,8 @@ export default function RedesPage() {
     } catch (err) { 
       console.error(err); 
       toast.error(ErrorMessages.loadRedes(err)); 
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -263,6 +267,11 @@ export default function RedesPage() {
 
       <div>
         <h3 className="font-medium mb-2">Lista de redes</h3>
+        {loading ? (
+          <div className="flex justify-center items-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : (
         <ul className="space-y-2">
           {redes
             .filter(r => !filterName || r.name.toLowerCase().includes(filterName.toLowerCase()))
@@ -335,6 +344,7 @@ export default function RedesPage() {
               </li>
             ))}
         </ul>
+        )}
       </div>
 
       {/* Floating create button */}

@@ -21,11 +21,12 @@ export default function CelulasPage() {
   const [cellMembersCount, setCellMembersCount] = useState<Record<number, number>>({});
   const [cellHasInactive, setCellHasInactive] = useState<Record<number, boolean>>({});
   const [confirmingCelula, setConfirmingCelula] = useState<Celula | null>(null);
-  
+  const [loading, setLoading] = useState(false);
+
   // Modal states
   const [showCelulaModal, setShowCelulaModal] = useState(false);
   const [editingCelula, setEditingCelula] = useState<Celula | null>(null);
-  
+
   // listing filters
   const [filterName, setFilterName] = useState('');
   const [filterRedeId, setFilterRedeId] = useState<number | null>(null);
@@ -34,11 +35,11 @@ export default function CelulasPage() {
   const [filterLeaderId, setFilterLeaderId] = useState<number | null>(null);
   const [showFilterLeaderDropdown, setShowFilterLeaderDropdown] = useState(false);
   const filterLeaderDropdownRef = useRef<HTMLDivElement>(null);
-  
+
   const [members, setMembers] = useState<Member[]>([]);
   const [discipulados, setDiscipulados] = useState<Discipulado[]>([]);
   const [redes, setRedes] = useState<Rede[]>([]);
-  
+
   const { user } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -82,6 +83,7 @@ export default function CelulasPage() {
   }, [showFilterLeaderDropdown]);
 
   const load = async () => {
+    setLoading(true);
     try {
       const g = await celulasService.getCelulas();
       const permission = user?.permission;
@@ -93,26 +95,28 @@ export default function CelulasPage() {
         setGroups(g);
       }
       // load member counts per célula
-        try {
-          const counts: Record<number, number> = {};
-          const inactiveMap: Record<number, boolean> = {};
-          await Promise.all((g || []).map(async (c) => {
-            try {
-              const m = await membersService.getMembers(c.id);
-              counts[c.id] = (m || []).length;
-              inactiveMap[c.id] = (m || []).some((mm) => mm.isActive === false);
-            } catch (err) {
-              counts[c.id] = 0;
-              inactiveMap[c.id] = false;
-            }
-          }));
-          setCellMembersCount(counts);
-          setCellHasInactive(inactiveMap);
+      try {
+        const counts: Record<number, number> = {};
+        const inactiveMap: Record<number, boolean> = {};
+        await Promise.all((g || []).map(async (c) => {
+          try {
+            const m = await membersService.getMembers(c.id);
+            counts[c.id] = (m || []).length;
+            inactiveMap[c.id] = (m || []).some((mm) => mm.isActive === false);
+          } catch (err) {
+            counts[c.id] = 0;
+            inactiveMap[c.id] = false;
+          }
+        }));
+        setCellMembersCount(counts);
+        setCellHasInactive(inactiveMap);
       } catch (err) {
         console.error('failed loading member counts', err);
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -198,11 +202,11 @@ export default function CelulasPage() {
   const duplicate = async (g: Celula) => {
     try {
       await celulasService.createCelula({ name: `${g.name} (cópia)`, leaderMemberId: g.leader?.id });
-      toast.success('Célula duplicada com sucesso!'); 
+      toast.success('Célula duplicada com sucesso!');
       load();
-    } catch (e) { 
-      console.error(e); 
-      toast.error(ErrorMessages.duplicateCelula(e)); 
+    } catch (e) {
+      console.error(e);
+      toast.error(ErrorMessages.duplicateCelula(e));
     }
   };
 
@@ -245,9 +249,9 @@ export default function CelulasPage() {
       toast.success('Célula multiplicada com sucesso!');
       setMultiplyingCelula(null);
       load();
-    } catch (e) { 
-      console.error(e); 
-      toast.error(ErrorMessages.multiplyCelula(e)); 
+    } catch (e) {
+      console.error(e);
+      toast.error(ErrorMessages.multiplyCelula(e));
     }
   };
 
@@ -262,8 +266,8 @@ export default function CelulasPage() {
         <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
           <input placeholder="Nome da célula" value={filterName} onChange={(e) => setFilterName(e.target.value)} className="border p-2 rounded flex-1 bg-white dark:bg-gray-800 dark:text-white h-10" />
 
-          <div className="w-full sm:w-48">
-            <ThemeProvider theme={muiTheme}>
+          <ThemeProvider theme={muiTheme}>
+            <div className="w-full sm:w-48">
               <FormControl fullWidth>
                 <InputLabel
                   id="filter-rede-label"
@@ -275,11 +279,9 @@ export default function CelulasPage() {
                   {redes.map(r => (<MenuItem key={r.id} value={r.id}>{r.name}</MenuItem>))}
                 </Select>
               </FormControl>
-            </ThemeProvider>
-          </div>
+            </div>
 
-          <div className="w-full sm:w-48">
-            <ThemeProvider theme={muiTheme}>
+            <div className="w-full sm:w-48">
               <FormControl fullWidth>
                 <InputLabel id="filter-discipulado-label" size='small'>Discipulado</InputLabel>
                 <Select labelId="filter-discipulado-label" value={filterDiscipuladoId ?? ''} label="Discipulado" onChange={(e) => setFilterDiscipuladoId(e.target.value ? Number(e.target.value) : null)} size="small" className="bg-white dark:bg-gray-800">
@@ -287,8 +289,8 @@ export default function CelulasPage() {
                   {discipulados.filter(discipulado => !filterRedeId || discipulado.redeId === filterRedeId).map(discipulado => (<MenuItem key={discipulado.id} value={discipulado.id}>{discipulado.discipulador?.name}</MenuItem>))}
                 </Select>
               </FormControl>
-            </ThemeProvider>
-          </div>
+            </div>
+          </ThemeProvider>
 
           <div ref={filterLeaderDropdownRef} className="relative w-full sm:w-64">
             <input placeholder="Líder" value={filterLeaderQuery || (filterLeaderId ? members.find(member => member.id === filterLeaderId)?.name : '')} onChange={(e) => { setFilterLeaderQuery(e.target.value); setShowFilterLeaderDropdown(true); setFilterLeaderId(null); }} onFocus={() => setShowFilterLeaderDropdown(true)} className="border p-2 rounded w-full bg-white dark:bg-gray-800 dark:text-white h-10" />
@@ -315,6 +317,11 @@ export default function CelulasPage() {
 
       <div>
         <h3 className="font-medium mb-2">Células existentes</h3>
+        {loading ? (
+          <div className="flex justify-center items-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : (
         <ul className="space-y-3">
           {groups
             .filter(g => !filterName || (g.name || '').toLowerCase().includes(filterName.toLowerCase()))
@@ -377,6 +384,7 @@ export default function CelulasPage() {
               </li>
             ))}
         </ul>
+        )}
       </div>
 
       {/* Floating create button */}
@@ -464,8 +472,6 @@ export default function CelulasPage() {
           </div>
         </div>
       )}
-
-      {/* Acompanhamento agora é uma página separada */}
     </div>
   );
 }

@@ -57,6 +57,8 @@ export interface Celula {
   // optional embedded leader member object when returned by API
   leader?: Member | null;
   discipuladoId?: number;
+  weekday?: number | null; // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+  time?: string | null; // Formato HH:mm (ex: "19:30")
   createdAt?: string;
   updatedAt?: string;
 }

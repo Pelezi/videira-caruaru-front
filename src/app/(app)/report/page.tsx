@@ -9,19 +9,18 @@ import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { LuHistory } from 'react-icons/lu';
 import { createTheme, FormControl, InputLabel, MenuItem, Select, ThemeProvider } from '@mui/material';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs, { Dayjs } from 'dayjs';
+import 'dayjs/locale/pt-br';
 
 export default function ReportPage() {
   const [groups, setGroups] = useState<Celula[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<number | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [presentMap, setPresentMap] = useState<Record<number, boolean>>({});
-  const [reportDate, setReportDate] = useState<string>(() => {
-    const d = new Date();
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  });
+  const [reportDate, setReportDate] = useState<Dayjs | null>(null);
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -45,6 +44,69 @@ export default function ReportPage() {
     };
     load();
   }, []);
+
+  // Função auxiliar para calcular datas válidas
+  const getValidDates = (celula: Celula | undefined): Dayjs[] => {
+    if (!celula || celula.weekday === null || celula.weekday === undefined) {
+      return []; // Sem restrição se não tiver dia da semana
+    }
+
+    const dates: Dayjs[] = [];
+    const today = dayjs();
+    
+    // Gerar 52 ocorrências passadas
+    for (let i = 1; i <= 52; i++) {
+      let date = today.subtract(i, 'week');
+      const currentWeekday = date.day();
+      const targetWeekday = celula.weekday;
+      const diff = targetWeekday - currentWeekday;
+      date = date.add(diff, 'day');
+      dates.unshift(date); // Adicionar no início para manter ordem cronológica
+    }
+    
+    // Gerar próximas 52 ocorrências (futuras + hoje)
+    for (let i = 0; i < 52; i++) {
+      let date = today.add(i, 'week');
+      const currentWeekday = date.day();
+      const targetWeekday = celula.weekday;
+      const diff = targetWeekday - currentWeekday;
+      date = date.add(diff, 'day');
+      dates.push(date);
+    }
+    
+    return dates;
+  };
+
+  // Atualizar data selecionada quando a célula mudar
+  useEffect(() => {
+    if (selectedGroup === null) {
+      setReportDate(null);
+      return;
+    }
+
+    const celula = groups.find(g => g.id === selectedGroup);
+    if (!celula || celula.weekday === null || celula.weekday === undefined) {
+      // Se não tem dia da semana definido, usar data de hoje
+      setReportDate(dayjs());
+      return;
+    }
+
+    const validDates = getValidDates(celula);
+    const today = dayjs();
+
+    // Verificar se hoje é uma data válida
+    const todayIsValid = validDates.some(d => d.isSame(today, 'day'));
+
+    if (todayIsValid) {
+      setReportDate(today);
+    } else if (validDates.length > 0) {
+      // Selecionar a próxima data válida
+      const nextValidDate = validDates.find(d => d.isAfter(today, 'day'));
+      setReportDate(nextValidDate || validDates[0]);
+    } else {
+      setReportDate(today);
+    }
+  }, [selectedGroup, groups]);
 
   useEffect(() => {
     const updateDarkMode = () => {
@@ -82,10 +144,14 @@ export default function ReportPage() {
 
   const submit = async () => {
     if (!selectedGroup) return toast.error('Selecione uma célula');
+    if (!reportDate) return toast.error('Selecione uma data');
     const memberIds = members.filter((m) => !!presentMap[m.id]).map((m) => m.id);
     if (memberIds.length === 0) return toast.error('Marque pelo menos um membro presente');
     try {
-      await reportsService.createReport(selectedGroup, { memberIds, date: reportDate });
+      await reportsService.createReport(selectedGroup, {
+        memberIds,
+        date: reportDate.format('YYYY-MM-DD')
+      });
       toast.success('Relatório enviado');
     } catch (e) {
       console.error(e);
@@ -106,8 +172,8 @@ export default function ReportPage() {
     <div>
       <h2 className="text-2xl font-semibold mb-4">Relatório de Presença</h2>
 
-      <div className="mb-4">
-        <ThemeProvider theme={muiTheme}>
+      <ThemeProvider theme={muiTheme}>
+        <div className="mb-4">
           <FormControl fullWidth>
             <InputLabel id="group-select-label">Selecione a célula</InputLabel>
             <Select
@@ -121,13 +187,38 @@ export default function ReportPage() {
               ))}
             </Select>
           </FormControl>
-        </ThemeProvider>
-      </div>
+        </div>
 
-      <div className="mb-4 max-w-xs">
-        <label className="block text-sm font-medium mb-1">Data do relatório</label>
-        <input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} className="w-full border px-3 py-2 rounded bg-white dark:bg-gray-800" />
-      </div>
+        <div className="mb-4 max-w-xs">
+          <label className="block text-sm font-medium mb-1">Data do relatório</label>
+          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br">
+            <DatePicker
+              value={reportDate}
+              onChange={(newValue: Dayjs | null) => setReportDate(newValue)}
+              format="DD/MM/YYYY"
+              shouldDisableDate={(date) => {
+                const celula = groups.find(g => g.id === selectedGroup);
+                if (!celula || celula.weekday === null || celula.weekday === undefined) {
+                  return false; // Sem restrição
+                }
+                const validDates = getValidDates(celula);
+                return !validDates.some(d => d.isSame(date, 'day'));
+              }}
+              localeText={{
+                toolbarTitle: 'Selecionar data',
+                cancelButtonLabel: 'Cancelar',
+                okButtonLabel: 'OK',
+              }}
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                  size: 'small',
+                },
+              }}
+            />
+          </LocalizationProvider>
+        </div>
+      </ThemeProvider>
 
       {members.length > 0 && (
         <div className="mb-4">

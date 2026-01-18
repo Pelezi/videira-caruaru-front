@@ -127,37 +127,39 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
   });
 
   useEffect(() => {
-    if (member) {
-      setName(member.name || '');
-      setCelulaId(member.celulaId ?? null);
-      setMaritalStatus(member.maritalStatus ?? 'SINGLE');
-      setPhotoUrl(member.photoUrl ?? '');
-      setPhone(member.phone ?? '');
-      setGender(member.gender ?? '');
-      setIsBaptized(member.isBaptized ?? false);
-      setBaptismDate(member.baptismDate ? isoToDateBR(member.baptismDate) : '');
-      setBirthDate(member.birthDate ? isoToDateBR(member.birthDate) : '');
-      setRegisterDate(member.registerDate ? isoToDateBR(member.registerDate) : '');
-      setSpouseId(member.spouseId ?? null);
-      setMinistryPositionId(member.ministryPositionId ?? null);
-      setWinnerPathId(member.winnerPathId ?? null);
-      setCanBeHost(member.canBeHost ?? false);
-      setCountry(member.country ?? 'Brasil');
-      setZipCode(member.zipCode ?? '');
-      setStreet(member.street ?? '');
-      setStreetNumber(member.streetNumber ?? '');
-      setNeighborhood(member.neighborhood ?? '');
-      setCity(member.city ?? '');
-      setComplement(member.complement ?? '');
-      setState(member.state ?? '');
-      setEmail(member.email ?? '');
-      setHasSystemAccess(member.hasSystemAccess ?? false);
-      setIsActive(member.isActive ?? true);
-      setSelectedRoleIds(member.roles?.map(mr => mr.role.id) ?? []);
-    } else {
-      resetForm();
+    if (isOpen) {
+      if (member) {
+        setName(member.name || '');
+        setCelulaId(member.celulaId ?? null);
+        setMaritalStatus(member.maritalStatus ?? 'SINGLE');
+        setPhotoUrl(member.photoUrl ?? '');
+        setPhone(member.phone ?? '');
+        setGender(member.gender ?? '');
+        setIsBaptized(member.isBaptized ?? false);
+        setBaptismDate(member.baptismDate ? isoToDateBR(member.baptismDate) : '');
+        setBirthDate(member.birthDate ? isoToDateBR(member.birthDate) : '');
+        setRegisterDate(member.registerDate ? isoToDateBR(member.registerDate) : '');
+        setSpouseId(member.spouseId ?? null);
+        setMinistryPositionId(member.ministryPositionId ?? null);
+        setWinnerPathId(member.winnerPathId ?? null);
+        setCanBeHost(member.canBeHost ?? false);
+        setCountry(member.country ?? 'Brasil');
+        setZipCode(member.zipCode ?? '');
+        setStreet(member.street ?? '');
+        setStreetNumber(member.streetNumber ?? '');
+        setNeighborhood(member.neighborhood ?? '');
+        setCity(member.city ?? '');
+        setComplement(member.complement ?? '');
+        setState(member.state ?? '');
+        setEmail(member.email ?? '');
+        setHasSystemAccess(member.hasSystemAccess ?? false);
+        setIsActive(member.isActive ?? true);
+        setSelectedRoleIds(member.roles?.map(mr => mr.role.id) ?? []);
+      } else {
+        resetForm();
+      }
     }
-  }, [member]);
+  }, [member, isOpen]);
 
   const resetForm = () => {
     setName('');
@@ -328,7 +330,7 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
       baptismDate: baptismDate ? dateBRToISO(baptismDate) : undefined,
       birthDate: birthDate ? dateBRToISO(birthDate) : undefined,
       registerDate: registerDate ? dateBRToISO(registerDate) : undefined,
-      spouseId: spouseId || undefined,
+      spouseId: maritalStatus === 'MARRIED' ? (spouseId || undefined) : null,
       ministryPositionId: ministryPositionId || undefined,
       winnerPathId: winnerPathId || undefined,
       canBeHost,
@@ -506,7 +508,7 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block mb-1 text-sm">Célula *</label>
+                <label className="block mb-1 text-sm">Célula</label>
                 <ThemeProvider theme={muiTheme}>
                   <FormControl 
                     fullWidth 

@@ -7,7 +7,7 @@
  * - LEADER: Líder (líder de Célula)
  * - LEADER_IN_TRAINING: Líder em Treinamento
  * - MEMBER: Membro
- * - REGULAR_ATTENDEE: Frequentador Regular
+ * - REGULAR_ATTENDEE: Frequentador Assíduo
  * - VISITOR: Visitante
  */
 export type MinistryType = 

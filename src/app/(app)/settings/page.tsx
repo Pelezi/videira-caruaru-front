@@ -21,7 +21,7 @@ const getMinistryTypeLabel = (type?: string) => {
     LEADER: 'Líder',
     LEADER_IN_TRAINING: 'Líder em Treinamento',
     MEMBER: 'Membro',
-    REGULAR_ATTENDEE: 'Frequentador Regular',
+    REGULAR_ATTENDEE: 'Frequentador Assíduo',
     VISITOR: 'Visitante',
   };
   return labels[type || 'MEMBER'] || 'Membro';
@@ -167,7 +167,7 @@ function MinistryModal({ isOpen, ministry, onClose, onSave }: MinistryModalProps
     { value: 'LEADER', label: 'Líder' },
     { value: 'LEADER_IN_TRAINING', label: 'Líder em Treinamento' },
     { value: 'MEMBER', label: 'Membro' },
-    { value: 'REGULAR_ATTENDEE', label: 'Frequentador Regular' },
+    { value: 'REGULAR_ATTENDEE', label: 'Frequentador Assíduo' },
     { value: 'VISITOR', label: 'Visitante' },
   ];
 

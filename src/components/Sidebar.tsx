@@ -95,7 +95,7 @@ export default function Sidebar() {
   const isLeader = perm.isAdmin || perm.pastor || perm.discipulador || perm.leader;
 
   const navItems: NavItem[] = [
-    { href: '/', label: 'Início', icon: <Home size={18} />, matchPrefix: false },
+    { href: '/dashboard', label: 'Início', icon: <Home size={18} />, matchPrefix: false },
     { 
       label: 'Relatório', 
       icon: <FileText size={18} />, 

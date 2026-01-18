@@ -149,6 +149,7 @@ export interface Member {
   // Access
   email?: string;
   hasSystemAccess?: boolean;
+  hasDefaultPassword?: boolean;
   
   // Roles
   roles?: Array<{ id: number; role: Role }>;

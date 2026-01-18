@@ -217,7 +217,7 @@ export default function Sidebar() {
           <Link
             href="/profile"
             onClick={handleNavClick}
-            className={`flex items-center gap-3 px-4 py-2 rounded-lg w-full transition-colors ${
+            className={`flex items-center gap-3 px-4 py-2 rounded-lg w-full transition-colors relative ${
               pathname === '/profile'
                 ? 'bg-blue-50 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -225,6 +225,12 @@ export default function Sidebar() {
           >
             <User size={18} />
             <span>Perfil</span>
+            {user?.hasDefaultPassword && (
+              <span className="ml-auto flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              </span>
+            )}
           </Link>
           <button
             onClick={toggleTheme}

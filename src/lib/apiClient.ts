@@ -4,6 +4,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8
 
 class ApiClient {
   private client: AxiosInstance;
+  private isRefreshing = false;
+  private refreshSubscribers: ((token: string) => void)[] = [];
 
   constructor() {
     this.client = axios.create({
@@ -25,15 +27,60 @@ class ApiClient {
       (error: AxiosError) => Promise.reject(error)
     );
 
-    // Response interceptor for error handling
+    // Response interceptor for error handling and token refresh
     this.client.interceptors.response.use(
       (response) => response,
-      (error: AxiosError) => {
+      async (error: AxiosError) => {
+        const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
         const status = error.response?.status;
-        if (status === 403) {
-          this.clearToken();
-          if (typeof window !== 'undefined') {
-            window.location.href = '/auth/login';
+        
+        // Handle 403 errors with token refresh
+        if (status === 403 && !originalRequest._retry && originalRequest) {
+          if (this.isRefreshing) {
+            // Wait for the token refresh to complete
+            return new Promise((resolve) => {
+              this.refreshSubscribers.push((token: string) => {
+                if (originalRequest.headers) {
+                  originalRequest.headers.Authorization = `Bearer ${token}`;
+                }
+                resolve(this.client(originalRequest));
+              });
+            });
+          }
+
+          originalRequest._retry = true;
+          this.isRefreshing = true;
+
+          try {
+            const refreshToken = this.getRefreshToken();
+            if (!refreshToken) {
+              throw new Error('No refresh token available');
+            }
+
+            const response = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {
+              refreshToken
+            });
+
+            const { token, refreshToken: newRefreshToken } = response.data;
+            this.setToken(token);
+            this.setRefreshToken(newRefreshToken);
+
+            // Retry all queued requests
+            this.refreshSubscribers.forEach(callback => callback(token));
+            this.refreshSubscribers = [];
+
+            if (originalRequest.headers) {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+            }
+            return this.client(originalRequest);
+          } catch (refreshError) {
+            this.clearTokens();
+            if (typeof window !== 'undefined') {
+              window.location.href = '/auth/login';
+            }
+            return Promise.reject(refreshError);
+          } finally {
+            this.isRefreshing = false;
           }
         }
         return Promise.reject(error);
@@ -46,9 +93,15 @@ class ApiClient {
     return localStorage.getItem('authToken');
   }
 
-  private clearToken(): void {
+  private getRefreshToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('refreshToken');
+  }
+
+  private clearTokens(): void {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
     }
   }
@@ -56,6 +109,12 @@ class ApiClient {
   setToken(token: string): void {
     if (typeof window !== 'undefined') {
       localStorage.setItem('authToken', token);
+    }
+  }
+
+  setRefreshToken(refreshToken: string): void {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('refreshToken', refreshToken);
     }
   }
 

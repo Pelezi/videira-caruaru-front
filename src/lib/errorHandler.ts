@@ -101,6 +101,10 @@ export const ErrorMessages = {
   updateWinnerPath: (error: unknown) => getErrorMessage(error, 'Falha ao atualizar caminho vencedor'),
   deleteWinnerPath: (error: unknown) => getErrorMessage(error, 'Falha ao remover caminho vencedor'),
   
+  // API Keys
+  createApiKey: (error: unknown) => getErrorMessage(error, 'Falha ao criar API key'),
+  deleteApiKey: (error: unknown) => getErrorMessage(error, 'Falha ao remover API key'),
+  
   // Genéricos
   save: (error: unknown) => getErrorMessage(error, 'Falha ao salvar'),
   delete: (error: unknown) => getErrorMessage(error, 'Falha ao remover'),

@@ -1,5 +1,5 @@
 import apiClient from '@/lib/apiClient';
-import { Role, Ministry, WinnerPath } from '@/types';
+import { Role, Ministry, WinnerPath, ApiKey } from '@/types';
 
 export const configService = {
   // Roles
@@ -70,5 +70,24 @@ export const configService = {
   async updateWinnerPathPriority(id: number, priority: number): Promise<WinnerPath> {
     const { data } = await apiClient.put(`/winner-paths/${id}/priority`, { priority });
     return data;
+  },
+
+  // API Keys
+  async getApiKeys(): Promise<ApiKey[]> {
+    const { data } = await apiClient.get('/config/api-keys');
+    return data;
+  },
+
+  async createApiKey(name: string): Promise<ApiKey & { key: string }> {
+    const { data } = await apiClient.post('/config/api-keys', { name });
+    return data;
+  },
+
+  async toggleApiKey(id: number): Promise<void> {
+    await apiClient.patch(`/config/api-keys/${id}/toggle`);
+  },
+
+  async deleteApiKey(id: number): Promise<void> {
+    await apiClient.delete(`/config/api-keys/${id}`);
   },
 };

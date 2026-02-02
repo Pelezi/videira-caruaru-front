@@ -6,6 +6,7 @@ import { memberService } from '@/services/memberService';
 import { Member } from '@/types';
 import { toast } from 'react-hot-toast';
 import { Eye, EyeOff } from 'lucide-react';
+import { formatPhoneForDisplay } from '@/lib/phoneUtils';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -134,7 +135,7 @@ export default function ProfilePage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-600 dark:text-gray-400">Telefone</label>
-            <p className="text-gray-900 dark:text-gray-100">{profile?.phone || 'Não informado'}</p>
+            <p className="text-gray-900 dark:text-gray-100">{formatPhoneForDisplay(profile?.phone) || 'Não informado'}</p>
           </div>
           {profile?.celula && (
             <div>

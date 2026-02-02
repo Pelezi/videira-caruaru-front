@@ -3,7 +3,7 @@
 import React, { useEffect, useState, use } from 'react';
 import { membersService } from '@/services/membersService';
 import { celulasService } from '@/services/celulasService';
-import { Member } from '@/types';
+import { Celula, Member } from '@/types';
 import toast from 'react-hot-toast';
 import { ErrorMessages } from '@/lib/errorHandler';
 import Link from 'next/link';
@@ -12,7 +12,7 @@ import AddMemberChoiceModal from '@/components/AddMemberChoiceModal';
 import { FiEdit2, FiTrash2, FiUserPlus } from 'react-icons/fi';
 
 export default function CelulaMembersPage({ params }: { params: Promise<{ id: string }> }) {
-  // `params` may be a Promise (Next routing). Unwrap it with React.use()
+  const [celulas, setCelulas] = useState<Celula[]>([]);
   const resolvedParams = use(params);
   const [members, setMembers] = useState<Member[]>([]);
   const [celulaName, setCelulaName] = useState<string>('');
@@ -37,7 +37,19 @@ export default function CelulaMembersPage({ params }: { params: Promise<{ id: st
     }
   };
 
-  useEffect(() => { 
+  useEffect(() => {
+    const loadCelulas = async () => {
+      try {
+        const c = await celulasService.getCelulas()
+        setCelulas(c);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    loadCelulas();
+  }, []);
+
+  useEffect(() => {
     load();
     // Carregar nome da célula
     const loadCelula = async () => {
@@ -80,23 +92,52 @@ export default function CelulaMembersPage({ params }: { params: Promise<{ id: st
     setIsModalOpen(true);
   };
 
-  const handleModalSave = async (memberData: Partial<Member>) => {
+  const handleModalSave = async (memberData: Partial<Member>): Promise<Member> => {
+    let savedMember: Member;
+    const wasCreating = !modalMember?.id;
+    const wasEnablingAccess = !modalMember?.hasSystemAccess && memberData.hasSystemAccess;
+    
     try {
       if (modalMember?.id) {
         // Edit existing member
-        await membersService.updateMember(celulaId, modalMember.id, memberData);
+        savedMember = await membersService.updateMember(celulaId, modalMember.id, memberData);
         toast.success('Membro atualizado com sucesso');
       } else {
         // Create new member
-        await membersService.addMember(celulaId, memberData as Partial<Member> & { name: string });
+        savedMember = await membersService.addMember(celulaId, memberData as Partial<Member> & { name: string });
         toast.success('Membro adicionado com sucesso');
       }
+
       setIsModalOpen(false);
       setModalMember(null);
       load();
+
+      // Enviar convite em background após fechar o modal
+      const shouldSendInvite = memberData.hasSystemAccess && memberData.email && memberData.email.trim() && (
+        wasCreating || // Criar novo membro com acesso
+        (wasEnablingAccess && modalMember?.hasDefaultPassword !== false && !modalMember?.inviteSent) // Ativando acesso pela primeira vez
+      );
+
+      if (shouldSendInvite) {
+        // Enviar em background sem bloquear
+        membersService.sendInvite(savedMember.id)
+          .then((response) => {
+            const message = response.whatsappSent 
+              ? 'Convite enviado por email e WhatsApp' 
+              : 'Convite enviado por email';
+            toast.success(message);
+          })
+          .catch((inviteErr: any) => {
+            console.error('Erro ao enviar convite:', inviteErr);
+            toast.error(inviteErr.response?.data?.message || 'Erro ao enviar convite, mas o membro foi salvo');
+          });
+      }
+
+      return savedMember;
     } catch (err) {
       console.error(err);
       toast.error(modalMember?.id ? ErrorMessages.updateMember(err) : ErrorMessages.createMember(err));
+      throw err;
     }
   };
 
@@ -104,11 +145,11 @@ export default function CelulaMembersPage({ params }: { params: Promise<{ id: st
     if (!confirm('Remover membro?')) return;
     try {
       await membersService.deleteMember(celulaId, memberId);
-      toast.success('Membro removido com sucesso!'); 
+      toast.success('Membro removido com sucesso!');
       load();
-    } catch (err) { 
-      console.error(err); 
-      toast.error(ErrorMessages.deleteMember(err)); 
+    } catch (err) {
+      console.error(err);
+      toast.error(ErrorMessages.deleteMember(err));
     }
   };
 
@@ -132,15 +173,15 @@ export default function CelulaMembersPage({ params }: { params: Promise<{ id: st
                 <div className="text-sm text-gray-500 dark:text-gray-400">id: {m.id}</div>
               </div>
               <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => openEditModal(m)} 
+                <button
+                  onClick={() => openEditModal(m)}
                   className="p-2 text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors"
                   title="Editar"
                 >
                   <FiEdit2 size={18} />
                 </button>
-                <button 
-                  onClick={() => remove(m.id)} 
+                <button
+                  onClick={() => remove(m.id)}
                   className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                   title="Remover"
                 >
@@ -177,6 +218,7 @@ export default function CelulaMembersPage({ params }: { params: Promise<{ id: st
           setIsModalOpen(false);
           setModalMember(null);
         }}
+        celulas={celulas}
         onSave={handleModalSave}
         initialCelulaId={celulaId}
       />

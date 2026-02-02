@@ -37,6 +37,7 @@ export interface Permission {
 
 export interface AuthResponse {
   token: string;
+  refreshToken?: string;
   user: Member;
   permission?: Permission | null;
 }
@@ -50,6 +51,28 @@ export interface SetPasswordResponse {
 
 export type LoginResponse = AuthResponse | SetPasswordResponse;
 
+export interface Matrix {
+  id: number;
+  name: string;
+  createdAt?: string;
+  updatedAt?: string;
+  domains?: MatrixDomain[];
+}
+
+export interface MatrixDomain {
+  id: number;
+  domain: string;
+  matrixId: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface MatrixAuthResponse extends AuthResponse {
+  matrices?: Matrix[];
+  currentMatrix?: { id: number; name: string };
+  requireMatrixSelection?: boolean;
+}
+
 export interface Celula {
   id: number;
   name: string;
@@ -59,6 +82,17 @@ export interface Celula {
   discipuladoId?: number;
   weekday?: number | null; // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
   time?: string | null; // Formato HH:mm (ex: "19:30")
+  
+  // Address fields
+  country?: string | null;
+  zipCode?: string | null;
+  street?: string | null;
+  streetNumber?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  complement?: string | null;
+  state?: string | null;
+  
   createdAt?: string;
   updatedAt?: string;
   discipulado?: Discipulado | null;
@@ -102,6 +136,19 @@ export interface WinnerPath {
   priority?: number;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface ApiKey {
+  id: number;
+  name: string;
+  keyPreview: string;
+  isActive: boolean;
+  createdAt: string;
+  lastUsedAt: string | null;
+  createdBy: {
+    id: number;
+    name: string;
+  };
 }
 
 export interface Member {
@@ -149,7 +196,10 @@ export interface Member {
   // Access
   email?: string;
   hasSystemAccess?: boolean;
-  hasDefaultPassword?: boolean;
+  hasDefaultPassword?: boolean | null;
+  inviteSent?: boolean;
+  hasLoggedIn?: boolean;
+  isOwner?: boolean;
   
   // Roles
   roles?: Array<{ id: number; role: Role }>;

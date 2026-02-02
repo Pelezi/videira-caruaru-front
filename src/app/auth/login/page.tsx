@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { authService } from '@/services/authService';
+import { matrixService } from '@/services/matrixService';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,8 +12,29 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [matrixName, setMatrixName] = useState('');
   const router = useRouter();
   const { login } = useAuth();
+
+  useEffect(() => {
+    // Fetch matrix information based on current domain
+    const fetchMatrixInfo = async () => {
+      try {
+        const matrixInfo = await matrixService.getCurrentDomainMatrix();
+        if (matrixInfo?.name) {
+          setMatrixName(matrixInfo.name);
+          document.title = matrixInfo.name;
+        } else {
+          document.title = 'Portal Uvas';
+        }
+      } catch (error) {
+        console.error('Error fetching matrix info:', error);
+        document.title = 'Portal Uvas';
+      }
+    };
+
+    fetchMatrixInfo();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,12 +42,22 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      // Backend extracts domain from request headers
       const result = await login(email, password);
+      
       // If backend returned a setPasswordUrl, redirect the user immediately to define password
       if ('setPasswordUrl' in result) {
         window.location.href = result.setPasswordUrl;
         return;
       }
+
+      // Check if requires matrix selection
+      if ('requireMatrixSelection' in result && result.requireMatrixSelection) {
+        router.push('/auth/select-matrix');
+        return;
+      }
+
+      // Successfully logged in with single matrix
       router.push('/report/fill');
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } } };
@@ -36,23 +68,18 @@ export default function LoginPage() {
     }
   };
 
-  const handleRequestSetPassword = async () => {
-    setError('');
-    try {
-      await authService.requestSetPassword(email);
-      setError('Link enviado. Verifique seu e-mail.');
-    } catch (e) {
-      setError('Falha ao enviar link');
-    }
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="max-w-md w-full space-y-8 p-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
         <div>
           <h2 className="text-center text-3xl font-bold text-gray-900 dark:text-gray-100">
-            Videira Caruaru
+            Portal Uvas
           </h2>
+          {matrixName && (
+            <h3 className="text-center text-xl font-semibold text-gray-700 dark:text-gray-300 mt-2">
+              {matrixName}
+            </h3>
+          )}
           <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
             Entrar
           </p>
@@ -108,11 +135,6 @@ export default function LoginPage() {
             </button>
           </div>
         </form>
-        <div className="mt-6 text-center">
-          <Link href="/auth/first-access" className="inline-block px-4 py-2 text-blue-600 dark:text-blue-400 font-semibold border border-blue-600 dark:border-blue-400 rounded hover:bg-blue-50 dark:hover:bg-blue-900 transition">
-            Primeiro acesso
-          </Link>
-        </div>
       </div>
     </div>
   );

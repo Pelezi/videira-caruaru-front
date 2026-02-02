@@ -2,8 +2,7 @@ import Providers from '@/components/Providers';
 import './globals.css';
 
 export const metadata = {
-  title: 'Videira Caruaru',
-  description: 'Landing page e sistema gerencial da Videira Caruaru',
+  description: 'Portal Uvas - Sistema de gerenciamento de membros e células',
 };
 
 export default function RootLayout({

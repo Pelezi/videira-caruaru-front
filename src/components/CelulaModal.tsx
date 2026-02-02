@@ -14,7 +14,21 @@ interface CelulaModalProps {
   celula: Celula | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { name: string; leaderMemberId?: number; discipuladoId?: number; weekday?: number; time?: string }) => Promise<void>;
+  onSave: (data: {
+    name: string;
+    leaderMemberId?: number;
+    discipuladoId?: number;
+    weekday?: number;
+    time?: string;
+    country?: string;
+    zipCode?: string;
+    street?: string;
+    streetNumber?: string;
+    neighborhood?: string;
+    city?: string;
+    complement?: string;
+    state?: string;
+  }) => Promise<void>;
   members: Member[];
   discipulados: Discipulado[];
   redes: Rede[];
@@ -41,6 +55,17 @@ export default function CelulaModal({
   const [showLeaderDropdown, setShowLeaderDropdown] = useState(false);
   const [weekday, setWeekday] = useState<number | null>(null);
   const [time, setTime] = useState<Dayjs | null>(() => dayjs().hour(19).minute(30));
+
+  // Address fields
+  const [country, setCountry] = useState('Brasil');
+  const [zipCode, setZipCode] = useState('');
+  const [street, setStreet] = useState('');
+  const [streetNumber, setStreetNumber] = useState('');
+  const [neighborhood, setNeighborhood] = useState('');
+  const [city, setCity] = useState('');
+  const [complement, setComplement] = useState('');
+  const [state, setState] = useState('');
+  const [loadingCep, setLoadingCep] = useState(false);
 
   // Validação
   const [touched, setTouched] = useState({
@@ -119,6 +144,16 @@ export default function CelulaModal({
       setWeekday(celula.weekday ?? null);
       setTime(celula.time ? dayjs(celula.time, 'HH:mm') : dayjs().hour(19).minute(30));
 
+      // Address fields
+      setCountry(celula.country || 'Brasil');
+      setZipCode(celula.zipCode || '');
+      setStreet(celula.street || '');
+      setStreetNumber(celula.streetNumber || '');
+      setNeighborhood(celula.neighborhood || '');
+      setCity(celula.city || '');
+      setComplement(celula.complement || '');
+      setState(celula.state || '');
+
       // Encontrar a rede através do discipulado
       if (celula.discipuladoId) {
         const disc = discipulados.find(d => d.id === celula.discipuladoId);
@@ -141,7 +176,64 @@ export default function CelulaModal({
     setLeaderName('');
     setWeekday(null);
     setTime(dayjs().hour(19).minute(30));
+    setCountry('Brasil');
+    setZipCode('');
+    setStreet('');
+    setStreetNumber('');
+    setNeighborhood('');
+    setCity('');
+    setComplement('');
+    setState('');
     setTouched({ name: false, discipulado: false });
+  };
+
+  const formatCep = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    const limited = numbers.slice(0, 8);
+    if (limited.length <= 5) {
+      return limited;
+    }
+    return `${limited.slice(0, 5)}-${limited.slice(5)}`;
+  };
+
+  const fetchAddressByCep = async (cep: string) => {
+    const cleanCep = cep.replace(/\D/g, '');
+
+    if (cleanCep.length !== 8) {
+      return;
+    }
+
+    setLoadingCep(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+      const data = await response.json();
+
+      if (data.erro) {
+        toast.error('CEP não encontrado');
+        return;
+      }
+
+      setStreet(data.logradouro || '');
+      setNeighborhood(data.bairro || '');
+      setCity(data.localidade || '');
+      setState(data.uf || '');
+      toast.success('Endereço preenchido automaticamente!');
+    } catch (err) {
+      console.error('Erro ao buscar CEP:', err);
+      toast.error('Erro ao buscar CEP');
+    } finally {
+      setLoadingCep(false);
+    }
+  };
+
+  const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCep(e.target.value);
+    setZipCode(formatted);
+
+    // Buscar endereço quando CEP estiver completo
+    if (formatted.replace(/\D/g, '').length === 8) {
+      fetchAddressByCep(formatted);
+    }
   };
 
   const handleSave = async () => {
@@ -174,6 +266,14 @@ export default function CelulaModal({
       time: time.format('HH:mm'),
       leaderMemberId: leaderId || undefined,
       discipuladoId: discipuladoId || undefined,
+      country: country || undefined,
+      zipCode: zipCode || undefined,
+      street: street || undefined,
+      streetNumber: streetNumber || undefined,
+      neighborhood: neighborhood || undefined,
+      city: city || undefined,
+      complement: complement || undefined,
+      state: state || undefined,
     });
 
     resetForm();
@@ -194,13 +294,13 @@ export default function CelulaModal({
       onClick={handleBackdropClick}
     >
       <ThemeProvider theme={muiTheme}>
-        <div className="bg-white dark:bg-gray-900 rounded w-11/12 sm:w-96 p-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white dark:bg-gray-900 rounded w-11/12 max-w-4xl my-8 max-h-[90vh] flex flex-col">
+          <div className="p-6 flex items-center justify-between border-b dark:border-gray-700">
             <h3 className="text-xl font-semibold">{isEditing ? 'Editar Célula' : 'Criar Célula'}</h3>
             <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">✕</button>
           </div>
 
-          <div className="space-y-3">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {/* Nome */}
             <div>
               <label className="block mb-1 text-sm">Nome *</label>
@@ -349,20 +449,122 @@ export default function CelulaModal({
                 />
               </LocalizationProvider>
             </div>
+
+            {/* Divider */}
+            <div className="border-t border-gray-200 dark:border-gray-700 my-4"></div>
+            <h4 className="text-md font-semibold mb-3">Endereço da Célula</h4>
+
+            {/* CEP */}
+            <div>
+              <label className="block mb-1 text-sm">CEP</label>
+              <div className="relative">
+                <input
+                  placeholder="00000-000"
+                  value={zipCode}
+                  onChange={handleCepChange}
+                  maxLength={9}
+                  className="border p-2 rounded w-full bg-white dark:bg-gray-800 dark:text-white h-10"
+                />
+                {loadingCep && (
+                  <div className="absolute right-2 top-2">
+                    <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Rua e Número */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-2">
+                <label className="block mb-1 text-sm">Rua</label>
+                <input
+                  placeholder="Nome da rua"
+                  value={street}
+                  onChange={(e) => setStreet(e.target.value)}
+                  className="border p-2 rounded w-full bg-white dark:bg-gray-800 dark:text-white h-10"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm">Número</label>
+                <input
+                  placeholder="123"
+                  value={streetNumber}
+                  onChange={(e) => setStreetNumber(e.target.value)}
+                  className="border p-2 rounded w-full bg-white dark:bg-gray-800 dark:text-white h-10"
+                />
+              </div>
+            </div>
+
+            {/* Bairro */}
+            <div>
+              <label className="block mb-1 text-sm">Bairro</label>
+              <input
+                placeholder="Nome do bairro"
+                value={neighborhood}
+                onChange={(e) => setNeighborhood(e.target.value)}
+                className="border p-2 rounded w-full bg-white dark:bg-gray-800 dark:text-white h-10"
+              />
+            </div>
+
+            {/* Cidade e Estado */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-2">
+                <label className="block mb-1 text-sm">Cidade</label>
+                <input
+                  placeholder="Nome da cidade"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="border p-2 rounded w-full bg-white dark:bg-gray-800 dark:text-white h-10"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm">Estado</label>
+                <input
+                  placeholder="UF"
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  maxLength={2}
+                  className="border p-2 rounded w-full bg-white dark:bg-gray-800 dark:text-white h-10 uppercase"
+                />
+              </div>
+            </div>
+
+            {/* Complemento */}
+            <div>
+              <label className="block mb-1 text-sm">Complemento</label>
+              <input
+                placeholder="Apartamento, bloco, etc."
+                value={complement}
+                onChange={(e) => setComplement(e.target.value)}
+                className="border p-2 rounded w-full bg-white dark:bg-gray-800 dark:text-white h-10"
+              />
+            </div>
+
+            {/* País */}
+            <div>
+              <label className="block mb-1 text-sm">País</label>
+              <input
+                placeholder="País"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                className="border p-2 rounded w-full bg-white dark:bg-gray-800 dark:text-white h-10"
+              />
+            </div>
           </div>
 
-          <div className="flex justify-end gap-2 mt-6">
+          {/* Botões de ação - sticky e full width */}
+          <div className="sticky bottom-0 bg-white dark:bg-gray-900 border-t dark:border-gray-700 p-6 flex gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+              className="flex-1 px-4 py-3 border rounded hover:bg-gray-100 dark:hover:bg-gray-800 font-medium"
             >
               Cancelar
             </button>
             <button
               onClick={handleSave}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="flex-1 px-4 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
             >
-              {isEditing ? 'Salvar' : 'Criar'}
+              {isEditing ? 'Salvar' : 'Criar Célula'}
             </button>
           </div>
         </div>

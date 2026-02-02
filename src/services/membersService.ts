@@ -54,4 +54,14 @@ export const membersService = {
     const res = await api.get(`/members/statistics${queryString ? `?${queryString}` : ''}`);
     return res.data;
   },
+
+  sendInvite: async (memberId: number): Promise<{ success: boolean; message: string; whatsappSent: boolean }> => {
+    const res = await api.post(`/members/${memberId}/send-invite`);
+    return res.data;
+  },
+
+  resendInvite: async (memberId: number): Promise<{ success: boolean; message: string; whatsappSent: boolean }> => {
+    const res = await api.post(`/members/${memberId}/resend-invite`);
+    return res.data;
+  },
 };

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Member } from '@/types';
+import { formatPhoneForDisplay } from '@/lib/phoneUtils';
 import { memberService } from '@/services/memberService';
 import { membersService } from '@/services/membersService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -221,7 +222,7 @@ export default function AddMemberChoiceModal({
                       </div>
                       <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                         {member.email && <div>Email: {member.email}</div>}
-                        {member.phone && <div>Telefone: {member.phone}</div>}
+                        {member.phone && <div>Telefone: {formatPhoneForDisplay(member.phone)}</div>}
                         {member.celula && (
                           <div className="text-orange-600 dark:text-orange-400">
                             ⚠️ Já está em: {member.celula.name}

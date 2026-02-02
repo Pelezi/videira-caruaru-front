@@ -44,7 +44,7 @@ const NavLink = ({ href, icon, label, isActive, onClick }: NavLinkProps) => (
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { logout, user } = useAuth();
+  const { logout, user, currentMatrix } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { isSidebarOpen, toggleSidebar } = useAppStore();
   const [openDropdowns, setOpenDropdowns] = useState<Set<string>>(new Set(['Relatório']));
@@ -91,7 +91,7 @@ export default function Sidebar() {
   const isLeader = perm.isAdmin || perm.pastor || perm.discipulador || perm.leader;
 
   const navItems: NavItem[] = [
-    { href: '/', label: 'Início', icon: <Home size={18} />, matchPrefix: false },
+    { href: '/', label: 'Início', icon: <Home size={18} />, matchPrefix: false, require: 'pastor' },
     { 
       label: 'Relatório', 
       icon: <FileText size={18} />, 
@@ -100,7 +100,7 @@ export default function Sidebar() {
         { href: '/report/view', label: 'Visualizar Relatório', icon: <FileText size={18} />, matchPrefix: false },
       ]
     },
-    { href: '/members', label: 'Membros', icon: <Users size={18} />, matchPrefix: true, require: 'leader' },
+    { href: '/members', label: 'Membros', icon: <Users size={18} />, matchPrefix: true, require: 'pastor' },
     { href: '/celulas', label: 'Células', icon: <Users size={18} />, matchPrefix: true, require: 'discipulador' },
     { href: '/discipulados', label: 'Discipulados', icon: <Users size={18} />, matchPrefix: true, require: 'discipulador' },
     { href: '/redes', label: 'Redes', icon: <Users size={18} />, matchPrefix: true, require: 'pastor' },
@@ -134,9 +134,9 @@ export default function Sidebar() {
         className={`fixed top-0 left-0 h-full w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-50 flex flex-col ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'
           }`}
       >
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Videira Caruaru</h1>
-          <div className="flex items-center gap-2">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Uvas</h1>
             <button
               onClick={toggleSidebar}
               className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded lg:hidden"
@@ -144,6 +144,12 @@ export default function Sidebar() {
               <X size={20} className="text-gray-900 dark:text-gray-100" />
             </button>
           </div>
+          {currentMatrix && (
+            <div className="mt-2 px-2 py-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-md">
+              <p className="text-xs text-gray-600 dark:text-gray-400">Base atual</p>
+              <p className="text-sm font-medium text-blue-600 dark:text-blue-300">{currentMatrix.name}</p>
+            </div>
+          )}
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">

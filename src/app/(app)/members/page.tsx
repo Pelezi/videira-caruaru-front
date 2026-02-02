@@ -110,19 +110,23 @@ export default function MembersManagementPage() {
     setIsModalOpen(true);
   };
 
-  const handleModalSave = async (data: Partial<Member>) => {
+  const handleModalSave = async (data: Partial<Member>): Promise<Member> => {
+    let savedMember: Member;
+    const wasCreating = !modalMember;
+    const wasEnablingAccess = !modalMember?.hasSystemAccess && data.hasSystemAccess;
+    
     try {
       if (modalMember) {
         // Editing
-        await membersService.updateMember(modalMember.celulaId || 0, modalMember.id, data);
+        savedMember = await membersService.updateMember(modalMember.celulaId || 0, modalMember.id, data);
         toast.success('Membro atualizado');
       } else {
         // Creating - name is required
         if (!data.name) {
           toast.error('Nome é obrigatório');
-          return;
+          throw new Error('Nome é obrigatório');
         }
-        await membersService.addMember(data.celulaId ?? null, data as Partial<Member> & { name: string });
+        savedMember = await membersService.addMember(data.celulaId ?? null, data as Partial<Member> & { name: string });
         toast.success('Membro criado com sucesso');
       }
 
@@ -135,9 +139,33 @@ export default function MembersManagementPage() {
       setMembers(refreshed);
       setIsModalOpen(false);
       setModalMember(null);
+
+      // Enviar convite em background após fechar o modal
+      const shouldSendInvite = data.hasSystemAccess && data.email && data.email.trim() && (
+        wasCreating || // Criar novo membro com acesso
+        (wasEnablingAccess && modalMember?.hasDefaultPassword !== false && !modalMember?.inviteSent) // Ativando acesso pela primeira vez
+      );
+
+      if (shouldSendInvite) {
+        // Enviar em background sem bloquear
+        membersService.sendInvite(savedMember.id)
+          .then((response) => {
+            const message = response.whatsappSent 
+              ? 'Convite enviado por email e WhatsApp' 
+              : 'Convite enviado por email';
+            toast.success(message);
+          })
+          .catch((inviteErr: any) => {
+            console.error('Erro ao enviar convite:', inviteErr);
+            toast.error(inviteErr.response?.data?.message || 'Erro ao enviar convite, mas o membro foi salvo');
+          });
+      }
+
+      return savedMember;
     } catch (e) {
       console.error(e);
       toast.error('Falha ao salvar');
+      throw e;
     }
   };
 

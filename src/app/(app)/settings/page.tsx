@@ -2,16 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { configService } from '@/services/configService';
-import { Role, Ministry, WinnerPath } from '@/types';
+import { Role, Ministry, WinnerPath, ApiKey } from '@/types';
 import toast from 'react-hot-toast';
 import { ErrorMessages } from '@/lib/errorHandler';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
-import { FiEdit2, FiTrash2, FiPlus } from 'react-icons/fi';
+import { FiEdit2, FiTrash2, FiPlus, FiCopy, FiEye, FiEyeOff } from 'react-icons/fi';
+import { useAuth } from '@/contexts/AuthContext';
 
-type TabType = 'ministries' | 'winnerPaths' | 'roles';
+type TabType = 'ministries' | 'winnerPaths' | 'roles' | 'apiKeys';
 
 const getMinistryTypeLabel = (type?: string) => {
   const labels: Record<string, string> = {
@@ -277,7 +278,7 @@ function WinnerPathModal({ isOpen, winnerPath, onClose, onSave }: WinnerPathModa
               onChange={(e) => setName(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
               className="w-full border p-2 rounded bg-white dark:bg-gray-800 dark:border-gray-600"
-              placeholder="Ex: Pré-encontro"
+              placeholder="Ex: Encontro com Deus"
               autoFocus
             />
           </div>
@@ -289,6 +290,175 @@ function WinnerPathModal({ isOpen, winnerPath, onClose, onSave }: WinnerPathModa
           </button>
           <button onClick={handleSubmit} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
             {winnerPath ? 'Salvar' : 'Criar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface ApiKeyModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (name: string) => void;
+}
+
+function ApiKeyModal({ isOpen, onClose, onSave }: ApiKeyModalProps) {
+  const [name, setName] = useState('');
+
+  useEffect(() => {
+    setName('');
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    if (isOpen) document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [isOpen, onClose]);
+
+  const handleSubmit = () => {
+    if (!name.trim()) {
+      toast.error('Nome é obrigatório');
+      return;
+    }
+    onSave(name);
+  };
+
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" onClick={handleBackdropClick}>
+      <div className="bg-white dark:bg-gray-900 rounded w-11/12 max-w-md flex flex-col">
+        <div className="p-6 flex items-center justify-between border-b dark:border-gray-700">
+          <h3 className="text-xl font-semibold">Nova API Key</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">✕</button>
+        </div>
+
+        <div className="flex-1 p-6 space-y-4">
+          <div>
+            <label className="block mb-2 text-sm font-medium">Nome da API Key *</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
+              className="w-full border p-2 rounded bg-white dark:bg-gray-800 dark:border-gray-600"
+              placeholder="Ex: Integração Sistema XYZ"
+              autoFocus
+            />
+          </div>
+          <div className="text-sm text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded">
+            ⚠️ A chave completa será exibida apenas uma vez após a criação. Certifique-se de salvá-la em um local seguro.
+          </div>
+        </div>
+
+        <div className="p-6 border-t dark:border-gray-700 flex gap-2">
+          <button onClick={onClose} className="flex-1 px-4 py-2 border rounded hover:bg-gray-100 dark:hover:bg-gray-700 dark:border-gray-600">
+            Cancelar
+          </button>
+          <button onClick={handleSubmit} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+            Criar API Key
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface ApiKeyDisplayModalProps {
+  isOpen: boolean;
+  apiKey: string;
+  onClose: () => void;
+}
+
+function ApiKeyDisplayModal({ isOpen, apiKey, onClose }: ApiKeyDisplayModalProps) {
+  const [copied, setCopied] = useState(false);
+
+  const copyToClipboard = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(apiKey);
+        setCopied(true);
+        toast.success('API Key copiada para a área de transferência!');
+        setTimeout(() => setCopied(false), 2000);
+      } else {
+        // Fallback for browsers that don't support clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = apiKey;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          setCopied(true);
+          toast.success('API Key copiada para a área de transferência!');
+          setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+          toast.error('Erro ao copiar API Key');
+        }
+        document.body.removeChild(textArea);
+      }
+    } catch (err) {
+      toast.error('Erro ao copiar API Key');
+    }
+  };
+
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" onClick={handleBackdropClick}>
+      <div className="bg-white dark:bg-gray-900 rounded w-11/12 max-w-2xl flex flex-col">
+        <div className="p-6 flex items-center justify-between border-b dark:border-gray-700">
+          <h3 className="text-xl font-semibold">API Key Criada com Sucesso!</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">✕</button>
+        </div>
+
+        <div className="flex-1 p-6 space-y-4">
+          <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-4 rounded font-medium">
+            ⚠️ IMPORTANTE: Esta é a única vez que a chave completa será exibida. Certifique-se de copiá-la e armazená-la em um local seguro!
+          </div>
+          
+          <div>
+            <label className="block mb-2 text-sm font-medium">Sua API Key:</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={apiKey}
+                readOnly
+                className="flex-1 border p-2 rounded bg-gray-50 dark:bg-gray-800 dark:border-gray-600 font-mono text-sm"
+              />
+              <button
+                onClick={copyToClipboard}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
+              >
+                <FiCopy className="h-4 w-4" />
+                {copied ? 'Copiado!' : 'Copiar'}
+              </button>
+            </div>
+          </div>
+
+          <div className="text-sm text-gray-600 dark:text-gray-400 space-y-2">
+            <p><strong>Como usar:</strong></p>
+            <p>Inclua esta chave no header <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">X-API-KEY</code> em suas requisições HTTP.</p>
+            <p className="font-mono text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded break-all">
+              curl -H &quot;X-API-KEY: {apiKey.substring(0, 20)}...&quot; https://api.example.com/external/check-phone?phone=123456789
+            </p>
+          </div>
+        </div>
+
+        <div className="p-6 border-t dark:border-gray-700">
+          <button onClick={onClose} className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+            Entendi, fechar
           </button>
         </div>
       </div>
@@ -387,7 +557,78 @@ function SimpleListItem({ name, onEdit, onDelete, showAdmin, isAdmin }: { name: 
   );
 }
 
+interface ConfirmationModalProps {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isDanger?: boolean;
+}
+
+function ConfirmationModal({
+  isOpen,
+  title,
+  message,
+  confirmText = 'Confirmar',
+  cancelText = 'Cancelar',
+  onConfirm,
+  onCancel,
+  isDanger = false
+}: ConfirmationModalProps) {
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    if (isOpen) document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [isOpen, onCancel]);
+
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) onCancel();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" onClick={handleBackdropClick}>
+      <div className="bg-white dark:bg-gray-900 rounded w-11/12 max-w-md flex flex-col">
+        <div className="p-6 flex items-center justify-between border-b dark:border-gray-700">
+          <h3 className="text-xl font-semibold">{title}</h3>
+          <button onClick={onCancel} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">✕</button>
+        </div>
+
+        <div className="flex-1 p-6">
+          <p className="text-gray-700 dark:text-gray-300">{message}</p>
+        </div>
+
+        <div className="p-6 border-t dark:border-gray-700 flex justify-end gap-3">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 border dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            {cancelText}
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`px-4 py-2 rounded text-white ${
+              isDanger
+                ? 'bg-red-600 hover:bg-red-700'
+                : 'bg-blue-600 hover:bg-blue-700'
+            }`}
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('ministries');
   
   // Roles
@@ -404,6 +645,20 @@ export default function SettingsPage() {
   const [winnerPaths, setWinnerPaths] = useState<WinnerPath[]>([]);
   const [isWinnerPathModalOpen, setIsWinnerPathModalOpen] = useState(false);
   const [editingWinnerPath, setEditingWinnerPath] = useState<WinnerPath | null>(null);
+  
+  // API Keys
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [newApiKey, setNewApiKey] = useState<string | null>(null);
+  const [isApiKeyDisplayModalOpen, setIsApiKeyDisplayModalOpen] = useState(false);
+
+  // Confirmation Modal
+  const [confirmationModal, setConfirmationModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -416,7 +671,10 @@ export default function SettingsPage() {
     loadRoles();
     loadMinistries();
     loadWinnerPaths();
-  }, []);
+    if (user?.isOwner) {
+      loadApiKeys();
+    }
+  }, [user]);
 
   // Roles functions
   const loadRoles = async () => {
@@ -458,15 +716,22 @@ export default function SettingsPage() {
   };
 
   const deleteRole = async (id: number) => {
-    if (!confirm('Tem certeza que deseja excluir esta função?')) return;
-    try {
-      await configService.deleteRole(id);
-      toast.success('Função excluída com sucesso!');
-      loadRoles();
-    } catch (err) {
-      console.error(err);
-      toast.error(ErrorMessages.deleteRole(err));
-    }
+    setConfirmationModal({
+      isOpen: true,
+      title: 'Excluir Função',
+      message: 'Tem certeza que deseja excluir esta função?',
+      onConfirm: async () => {
+        setConfirmationModal({ ...confirmationModal, isOpen: false });
+        try {
+          await configService.deleteRole(id);
+          toast.success('Função excluída com sucesso!');
+          loadRoles();
+        } catch (err) {
+          console.error(err);
+          toast.error(ErrorMessages.deleteRole(err));
+        }
+      }
+    });
   };
 
   // Ministries functions
@@ -509,15 +774,22 @@ export default function SettingsPage() {
   };
 
   const deleteMinistry = async (id: number) => {
-    if (!confirm('Tem certeza que deseja excluir este cargo ministerial?')) return;
-    try {
-      await configService.deleteMinistry(id);
-      toast.success('Cargo ministerial excluído com sucesso!');
-      loadMinistries();
-    } catch (err) {
-      console.error(err);
-      toast.error(ErrorMessages.deleteMinistry(err));
-    }
+    setConfirmationModal({
+      isOpen: true,
+      title: 'Excluir Cargo Ministerial',
+      message: 'Tem certeza que deseja excluir este cargo ministerial?',
+      onConfirm: async () => {
+        setConfirmationModal({ ...confirmationModal, isOpen: false });
+        try {
+          await configService.deleteMinistry(id);
+          toast.success('Cargo ministerial excluído com sucesso!');
+          loadMinistries();
+        } catch (err) {
+          console.error(err);
+          toast.error(ErrorMessages.deleteMinistry(err));
+        }
+      }
+    });
   };
 
   const handleMinistryDragEnd = async (event: DragEndEvent) => {
@@ -584,15 +856,22 @@ export default function SettingsPage() {
   };
 
   const deleteWinnerPath = async (id: number) => {
-    if (!confirm('Tem certeza que deseja excluir este trilho do vencedor?')) return;
-    try {
-      await configService.deleteWinnerPath(id);
-      toast.success('Trilho do vencedor excluído com sucesso!');
-      loadWinnerPaths();
-    } catch (err) {
-      console.error(err);
-      toast.error(ErrorMessages.deleteWinnerPath(err));
-    }
+    setConfirmationModal({
+      isOpen: true,
+      title: 'Excluir Trilho do Vencedor',
+      message: 'Tem certeza que deseja excluir este trilho do vencedor?',
+      onConfirm: async () => {
+        setConfirmationModal({ ...confirmationModal, isOpen: false });
+        try {
+          await configService.deleteWinnerPath(id);
+          toast.success('Trilho do vencedor excluído com sucesso!');
+          loadWinnerPaths();
+        } catch (err) {
+          console.error(err);
+          toast.error(ErrorMessages.deleteWinnerPath(err));
+        }
+      }
+    });
   };
 
   const handleWinnerPathDragEnd = async (event: DragEndEvent) => {
@@ -618,6 +897,67 @@ export default function SettingsPage() {
       loadWinnerPaths();
     }
   };
+
+  // API Keys functions
+  const loadApiKeys = async () => {
+    try {
+      const data = await configService.getApiKeys();
+      setApiKeys(data);
+    } catch (err) {
+      console.error(err);
+      toast.error(ErrorMessages.load(err));
+    }
+  };
+
+  const openCreateApiKeyModal = () => {
+    setIsApiKeyModalOpen(true);
+  };
+
+  const handleApiKeySave = async (name: string) => {
+    try {
+      const result = await configService.createApiKey(name);
+      setNewApiKey(result.key);
+      setIsApiKeyModalOpen(false);
+      setIsApiKeyDisplayModalOpen(true);
+      loadApiKeys();
+    } catch (err) {
+      console.error(err);
+      toast.error(ErrorMessages.createApiKey?.(err) || 'Erro ao criar API key');
+    }
+  };
+
+  const toggleApiKey = async (id: number) => {
+    try {
+      await configService.toggleApiKey(id);
+      toast.success('Status da API key alterado com sucesso!');
+      loadApiKeys();
+    } catch (err) {
+      console.error(err);
+      toast.error(ErrorMessages.save(err));
+    }
+  };
+
+  const deleteApiKey = async (id: number) => {
+    setConfirmationModal({
+      isOpen: true,
+      title: 'Excluir API Key',
+      message: 'Tem certeza que deseja excluir esta API key? Esta ação não pode ser desfeita.',
+      onConfirm: async () => {
+        setConfirmationModal({ ...confirmationModal, isOpen: false });
+        try {
+          await configService.deleteApiKey(id);
+          toast.success('API key excluída com sucesso!');
+          loadApiKeys();
+        } catch (err) {
+          console.error(err);
+          toast.error(ErrorMessages.deleteApiKey?.(err) || 'Erro ao excluir API key');
+        }
+      }
+    });
+  };
+
+  const isAdmin = user?.permission?.isAdmin || false;
+  const isOwner = user?.isOwner || false;
 
   return (
     <div className="p-6 relative pb-20">
@@ -655,6 +995,18 @@ export default function SettingsPage() {
         >
           Funções
         </button>
+        {isOwner && (
+          <button
+            onClick={() => setActiveTab('apiKeys')}
+            className={`px-4 py-2 font-medium transition-colors ${
+              activeTab === 'apiKeys'
+                ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
+          >
+            API Keys
+          </button>
+        )}
       </div>
 
       {/* Ministries Tab */}
@@ -718,12 +1070,62 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {/* API Keys Tab */}
+      {activeTab === 'apiKeys' && isOwner && (
+        <div>
+          <ul className="space-y-2">
+            {apiKeys.map((apiKey) => (
+              <li key={apiKey.id} className="flex items-center justify-between p-3 border rounded bg-white dark:bg-gray-800 dark:border-gray-600">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{apiKey.name}</span>
+                    <span className={`px-2 py-1 text-xs rounded ${apiKey.isActive ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}>
+                      {apiKey.isActive ? 'Ativa' : 'Inativa'}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    <span className="font-mono">{apiKey.keyPreview}</span>
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                    Criada por {apiKey.createdBy.name} em {new Date(apiKey.createdAt).toLocaleDateString('pt-BR')}
+                    {apiKey.lastUsedAt && ` • Último uso: ${new Date(apiKey.lastUsedAt).toLocaleDateString('pt-BR')}`}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => toggleApiKey(apiKey.id)} 
+                    aria-label={apiKey.isActive ? 'Desativar' : 'Ativar'}
+                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                    title={apiKey.isActive ? 'Desativar API key' : 'Ativar API key'}
+                  >
+                    {apiKey.isActive ? <FiEyeOff className="h-4 w-4 text-gray-600" /> : <FiEye className="h-4 w-4 text-green-600" />}
+                  </button>
+                  <button 
+                    onClick={() => deleteApiKey(apiKey.id)} 
+                    aria-label="Excluir" 
+                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <FiTrash2 className="h-4 w-4 text-red-600" />
+                  </button>
+                </div>
+              </li>
+            ))}
+            {apiKeys.length === 0 && (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                Nenhuma API key criada ainda. Clique no botão + para criar uma.
+              </div>
+            )}
+          </ul>
+        </div>
+      )}
+
       {/* Floating Action Button */}
       <button
         onClick={() => {
           if (activeTab === 'ministries') openCreateMinistryModal();
           else if (activeTab === 'winnerPaths') openCreateWinnerPathModal();
           else if (activeTab === 'roles') openCreateRoleModal();
+          else if (activeTab === 'apiKeys') openCreateApiKeyModal();
         }}
         className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 z-40"
         aria-label="Adicionar"
@@ -762,6 +1164,35 @@ export default function SettingsPage() {
           setEditingWinnerPath(null);
         }}
         onSave={handleWinnerPathSave}
+      />
+
+      {/* API Key Modal */}
+      <ApiKeyModal
+        isOpen={isApiKeyModalOpen}
+        onClose={() => setIsApiKeyModalOpen(false)}
+        onSave={handleApiKeySave}
+      />
+
+      {/* API Key Display Modal */}
+      <ApiKeyDisplayModal
+        isOpen={isApiKeyDisplayModalOpen}
+        apiKey={newApiKey || ''}
+        onClose={() => {
+          setIsApiKeyDisplayModalOpen(false);
+          setNewApiKey(null);
+        }}
+      />
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmationModal.isOpen}
+        title={confirmationModal.title}
+        message={confirmationModal.message}
+        confirmText="Excluir"
+        cancelText="Cancelar"
+        onConfirm={confirmationModal.onConfirm}
+        onCancel={() => setConfirmationModal({ ...confirmationModal, isOpen: false })}
+        isDanger={true}
       />
     </div>
   );

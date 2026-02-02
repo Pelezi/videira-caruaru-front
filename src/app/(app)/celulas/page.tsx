@@ -408,7 +408,7 @@ export default function CelulasPage() {
                       })()}
                     </>
                   )}
-                  <Link href={`/celulas/${g.id}/presence?from=celulas`} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800" title="Acompanhamento" aria-label={`Acompanhamento ${g.name}`}>
+                  <Link href="/report/view" className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800" title="Acompanhamento" aria-label={`Acompanhamento ${g.name}`}>
                     <LuHistory className="h-6 w-6 text-teal-600" aria-hidden />
                   </Link>
                 </div>

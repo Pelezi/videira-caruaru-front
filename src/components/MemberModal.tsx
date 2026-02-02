@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Member, Celula, Ministry, WinnerPath, Role } from '@/types';
-import { createTheme, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent, ThemeProvider, Checkbox, ListItemText, OutlinedInput } from '@mui/material';
+import { createTheme, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent, ThemeProvider, Checkbox, ListItemText, OutlinedInput, Autocomplete, TextField } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -12,13 +12,14 @@ import toast from 'react-hot-toast';
 import { configService } from '@/services/configService';
 import { memberService } from '@/services/memberService';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatPhoneForDisplay, formatPhoneForInput, stripPhoneFormatting, ensureCountryCode } from '@/lib/phoneUtils';
 
 interface MemberModalProps {
   member: Member | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: Partial<Member>) => Promise<void>;
-  celulas?: Celula[];
+  onSave: (data: Partial<Member>) => Promise<Member>;
+  celulas: Celula[];
   initialCelulaId?: number | null;
 }
 
@@ -60,6 +61,7 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
   const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
   const [allMembers, setAllMembers] = useState<Member[]>([]);
   const [loadingCep, setLoadingCep] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Validação
   const [touched, setTouched] = useState({
@@ -125,6 +127,20 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
     loadConfigData();
   }, []);
 
+  // Verificar se usuário pode gerenciar acesso ao sistema
+  const canManageSystemAccess = useMemo(() => {
+    if (!user) return false;
+
+    const isAdmin = user.permission?.isAdmin || false;
+    const isPastor = user.permission?.ministryType === 'PRESIDENT_PASTOR' ||
+      user.permission?.ministryType === 'PASTOR';
+    const isDiscipulador = user.permission?.ministryType === 'DISCIPULADOR';
+    const isLeader = user.permission?.ministryType === 'LEADER';
+
+    // Apenas admin, pastores, discipuladores e líderes podem gerenciar acesso ao sistema
+    return isAdmin || isPastor || isDiscipulador || isLeader;
+  }, [user]);
+
   // Filtrar ministérios permitidos baseado no cargo do usuário logado
   const allowedMinistries = useMemo(() => {
     // Se não há usuário logado, retornar lista vazia
@@ -132,9 +148,9 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
 
     // Admin e pastores podem atribuir qualquer cargo
     const isAdmin = user.permission?.isAdmin || false;
-    const isPastor = user.permission?.ministryType === 'PRESIDENT_PASTOR' || 
-                     user.permission?.ministryType === 'PASTOR';
-    
+    const isPastor = user.permission?.ministryType === 'PRESIDENT_PASTOR' ||
+      user.permission?.ministryType === 'PASTOR';
+
     if (isAdmin || isPastor) {
       return ministries;
     }
@@ -171,7 +187,7 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
         setCelulaId(member.celulaId ?? null);
         setMaritalStatus(member.maritalStatus ?? 'SINGLE');
         setPhotoUrl(member.photoUrl ?? '');
-        setPhone(member.phone ?? '');
+        setPhone(member.phone ? formatPhoneForDisplay(ensureCountryCode(member.phone)) : '+55');
         setGender(member.gender ?? '');
         setIsBaptized(member.isBaptized ?? false);
         setBaptismDate(member.baptismDate ? dayjs(member.baptismDate) : null);
@@ -208,7 +224,7 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
     setCelulaId(null);
     setMaritalStatus('SINGLE');
     setPhotoUrl('');
-    setPhone('');
+    setPhone('+55');
     setGender('');
     setIsBaptized(false);
     setBaptismDate(null);
@@ -231,25 +247,6 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
     setIsActive(true);
     setSelectedRoleIds([]);
     setTouched({ name: false, ministryPosition: false, email: false });
-  };
-
-  const formatPhoneNumber = (value: string) => {
-    // Remove tudo que não é número
-    const numbers = value.replace(/\D/g, '');
-
-    // Limita a 11 dígitos
-    const limited = numbers.slice(0, 11);
-
-    // Aplica a máscara
-    if (limited.length <= 2) {
-      return limited;
-    } else if (limited.length <= 6) {
-      return `(${limited.slice(0, 2)}) ${limited.slice(2)}`;
-    } else if (limited.length <= 10) {
-      return `(${limited.slice(0, 2)}) ${limited.slice(2, 6)}-${limited.slice(6)}`;
-    } else {
-      return `(${limited.slice(0, 2)}) ${limited.slice(2, 7)}-${limited.slice(7)}`;
-    }
   };
 
   const formatCep = (value: string) => {
@@ -304,7 +301,7 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhoneNumber(e.target.value);
+    const formatted = formatPhoneForInput(e.target.value);
     setPhone(formatted);
   };
 
@@ -332,11 +329,15 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
       return;
     }
 
+    // Preparar telefone: não enviar se for apenas o código do país "55"
+    const strippedPhone = phone ? stripPhoneFormatting(phone) : '';
+    const phoneToSend = strippedPhone && strippedPhone !== '55' ? strippedPhone : undefined;
+
     const data: Partial<Member> & { roleIds?: number[] } = {
       name,
       maritalStatus: maritalStatus as any,
       photoUrl: photoUrl || undefined,
-      phone: phone || undefined,
+      phone: phoneToSend,
       gender: gender as any || undefined,
       isBaptized,
       baptismDate: baptismDate ? baptismDate.format('YYYY-MM-DD') : undefined,
@@ -362,8 +363,18 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
 
     data.celulaId = celulaId;
 
-    // Salvar o membro
-    await onSave(data);
+    setIsSaving(true);
+    try {
+      // Salvar o membro - onSave agora retorna o membro salvo
+      await onSave(data);
+      // Modal fecha imediatamente após salvar com sucesso
+      // O envio do convite continuará em background no parent
+    } catch (error) {
+      // Se houver erro, mantém o modal aberto
+      console.error('Erro ao salvar:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleToggleActive = async () => {
@@ -493,7 +504,7 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
                     onChange={handlePhoneChange}
                     className="border p-2 rounded w-full bg-white dark:bg-gray-800 h-10"
                     placeholder="(11) 99999-9999"
-                    maxLength={15}
+                    maxLength={25}
                   />
                 </div>
               </div>
@@ -506,22 +517,26 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block mb-1 text-sm">Célula</label>
-                  <FormControl
-                    fullWidth
+                  <Autocomplete
                     size="small"
-                  >
-                    <Select
-                      value={celulaId ?? ''}
-                      onChange={(e) => setCelulaId(e.target.value ? Number(e.target.value) : null)}
-                      className="bg-white dark:bg-gray-800"
-                      displayEmpty
-                    >
-                      <MenuItem value="">Sem célula</MenuItem>
-                      {celulas.map(c => (
-                        <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                    options={celulas}
+                    getOptionLabel={(option) => option.name}
+                    value={celulas.find(c => c.id === celulaId) || null}
+                    onChange={(event, newValue) => {
+                      setCelulaId(newValue ? newValue.id : null);
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="Sem célula"
+                        className="bg-white dark:bg-gray-800"
+                      />
+                    )}
+                    noOptionsText="Nenhuma célula encontrada"
+                    clearText="Limpar"
+                    openText="Abrir"
+                    closeText="Fechar"
+                  />
                 </div>
                 <div>
                   <label className="block mb-1 text-sm">Cargo Ministerial *</label>
@@ -570,11 +585,11 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
                       <DatePicker
                         value={baptismDate}
                         onChange={(newValue: Dayjs | null) => setBaptismDate(newValue)}
-                        format="DD/MM/YYYY"                          localeText={{
-                            toolbarTitle: 'Selecionar data',
-                            cancelButtonLabel: 'Cancelar',
-                            okButtonLabel: 'OK',
-                          }}                        slotProps={{
+                        format="DD/MM/YYYY" localeText={{
+                          toolbarTitle: 'Selecionar data',
+                          cancelButtonLabel: 'Cancelar',
+                          okButtonLabel: 'OK',
+                        }} slotProps={{
                           textField: {
                             fullWidth: true,
                             size: 'small',
@@ -670,11 +685,11 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
                     <DatePicker
                       value={registerDate}
                       onChange={(newValue: Dayjs | null) => setRegisterDate(newValue)}
-                      format="DD/MM/YYYY"                      localeText={{
+                      format="DD/MM/YYYY" localeText={{
                         toolbarTitle: 'Selecionar data',
                         cancelButtonLabel: 'Cancelar',
                         okButtonLabel: 'OK',
-                      }}                      slotProps={{
+                      }} slotProps={{
                         textField: {
                           fullWidth: true,
                           size: 'small',
@@ -826,23 +841,73 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
 
                 <div>
                   <label className="block mb-1 text-sm">Acesso ao sistema</label>
-                  <label htmlFor="hasSystemAccess" className="border rounded p-2 flex items-center justify-between bg-gray-50 dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors">
-                    <span className="text-sm font-medium"></span>
-                    <div className="relative inline-block w-12 h-6">
-                      <input
-                        type="checkbox"
-                        checked={hasSystemAccess}
-                        onChange={(e) => setHasSystemAccess(e.target.checked)}
-                        id="hasSystemAccess"
-                        className="sr-only peer"
-                      />
-                      <span className="absolute inset-0 bg-gray-300 dark:bg-gray-600 rounded-full transition-all duration-300 ease-in-out peer-checked:bg-blue-600"></span>
-                      <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300 ease-in-out peer-checked:translate-x-6 peer-checked:shadow-md"></span>
-                    </div>
-                  </label>
+                  <div className="flex gap-2">
+                    <label
+                      htmlFor="hasSystemAccess"
+                      className={`border rounded p-2 flex items-center justify-between bg-gray-50 dark:bg-gray-800 transition-colors flex-1 ${canManageSystemAccess ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-900' : 'cursor-not-allowed opacity-60'
+                        }`}
+                      title={!canManageSystemAccess ? 'Você não tem permissão para gerenciar acesso ao sistema' : ''}
+                    >
+                      <span className="text-sm font-medium"></span>
+                      <div className="relative inline-block w-12 h-6">
+                        <input
+                          type="checkbox"
+                          checked={hasSystemAccess}
+                          onChange={(e) => canManageSystemAccess && setHasSystemAccess(e.target.checked)}
+                          id="hasSystemAccess"
+                          disabled={!canManageSystemAccess}
+                          className="sr-only peer"
+                        />
+                        <span className={`absolute inset-0 rounded-full transition-all duration-300 ease-in-out ${canManageSystemAccess
+                            ? 'bg-gray-300 dark:bg-gray-600 peer-checked:bg-blue-600'
+                            : 'bg-gray-400 dark:bg-gray-700 peer-checked:bg-gray-500'
+                          }`}></span>
+                        <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300 ease-in-out peer-checked:translate-x-6 peer-checked:shadow-md"></span>
+                      </div>
+                    </label>
+                    {isEditing && hasSystemAccess && member?.hasSystemAccess && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!member?.id || member?.hasLoggedIn || !canManageSystemAccess) return;
+                          try {
+                            const response = await memberService.resendInvite(member.id);
+                            const message = response.whatsappSent
+                              ? 'Convite reenviado por email e WhatsApp!'
+                              : 'Convite reenviado por email!';
+                            toast.success(message);
+                          } catch (err: any) {
+                            toast.error(err.response?.data?.message || 'Erro ao reenviar convite');
+                          }
+                        }}
+                        disabled={member?.hasLoggedIn || !canManageSystemAccess}
+                        title={
+                          !canManageSystemAccess
+                            ? 'Você não tem permissão para reenviar convites'
+                            : member?.hasLoggedIn
+                              ? 'Este usuário já recebeu o convite e conseguiu acessar o sistema'
+                              : 'Reenviar convite por email e WhatsApp'
+                        }
+                        className={`border rounded p-2 text-sm font-medium flex-1 transition-colors ${member?.hasLoggedIn || !canManageSystemAccess
+                            ? 'bg-gray-400 text-gray-700 cursor-not-allowed opacity-60'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
+                          }`}
+                      >
+                        Reenviar Convite
+                      </button>
+                    )}
+                  </div>
                   {hasSystemAccess && (
                     <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                      Um convite será enviado por email para criar a senha de acesso ao sistema
+                      {isEditing && member?.hasLoggedIn
+                        ? 'Usuário já acessou o sistema'
+                        : 'Um convite será enviado por email para criar a senha de acesso ao sistema'
+                      }
+                    </p>
+                  )}
+                  {!canManageSystemAccess && (
+                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
+                      ⚠️ Apenas líderes, discipuladores, pastores e admins podem gerenciar acesso ao sistema
                     </p>
                   )}
                 </div>
@@ -866,21 +931,23 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
               </div>
             )}
 
-            {/* Botões de ação - sticky e full width */}
           </div>
 
-          <div className="sticky bottom-0 bg-white dark:bg-gray-900 border-t dark:border-gray-700 p-6 flex flex-col gap-2">
-            <button
-              onClick={handleSave}
-              className="w-full px-4 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
-            >
-              {isEditing ? 'Salvar' : 'Criar Membro'}
-            </button>
+          {/* Botões de ação - sticky e full width */}
+          <div className="sticky bottom-0 bg-white dark:bg-gray-900 border-t dark:border-gray-700 p-6 flex gap-3">
             <button
               onClick={onClose}
-              className="w-full px-4 py-3 border rounded hover:bg-gray-100 dark:hover:bg-gray-800 font-medium"
+              disabled={isSaving}
+              className="flex-1 px-4 py-3 border rounded hover:bg-gray-100 dark:hover:bg-gray-800 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancelar
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex-1 px-4 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSaving ? 'Salvando...' : (isEditing ? 'Salvar' : 'Criar Membro')}
             </button>
           </div>
         </div>

@@ -207,15 +207,35 @@ export default function ReportPage() {
     setIsAddMemberModalOpen(true);
   };
 
-  const handleSaveMember = async (data: Partial<Member>) => {
+  const handleSaveMember = async (data: Partial<Member>): Promise<Member> => {
     try {
-      await membersService.addMember(selectedGroup, data as Partial<Member> & { name: string });
+      const created = await membersService.addMember(selectedGroup, data as Partial<Member> & { name: string });
       toast.success('Membro adicionado com sucesso');
+
       setIsAddMemberModalOpen(false);
       await reloadMembers();
+
+      // Enviar convite em background após fechar o modal
+      if (data.hasSystemAccess && data.email && data.email.trim()) {
+        // Enviar em background sem bloquear
+        membersService.sendInvite(created.id)
+          .then((response) => {
+            const message = response.whatsappSent 
+              ? 'Convite enviado por email e WhatsApp' 
+              : 'Convite enviado por email';
+            toast.success(message);
+          })
+          .catch((inviteErr: any) => {
+            console.error('Erro ao enviar convite:', inviteErr);
+            toast.error(inviteErr.response?.data?.message || 'Erro ao enviar convite, mas o membro foi salvo');
+          });
+      }
+
+      return created;
     } catch (e) {
       console.error(e);
       toast.error('Falha ao adicionar membro');
+      throw e;
     }
   };
 
@@ -348,7 +368,7 @@ export default function ReportPage() {
                 <FiPlus className="h-6 w-6 text-blue-600" aria-hidden />
               </button>
               {selectedGroup && (
-                <Link href={`/celulas/${selectedGroup}/presence?from=report`} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Acompanhamento">
+                <Link href="/report/view" className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Acompanhamento">
                   <LuHistory className="h-6 w-6 text-teal-600" aria-hidden />
                 </Link>
               )}

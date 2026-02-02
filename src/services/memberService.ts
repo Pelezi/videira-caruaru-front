@@ -78,4 +78,14 @@ export const memberService = {
     const response = await apiClient.put('/members/profile/email', { email });
     return response.data;
   },
+
+  async resendInvite(memberId: number): Promise<{ success: boolean; message: string; whatsappSent: boolean }> {
+    const response = await apiClient.post(`/members/${memberId}/resend-invite`);
+    return response.data;
+  },
+
+  async sendInvite(memberId: number): Promise<{ success: boolean; message: string; whatsappSent: boolean }> {
+    const response = await apiClient.post(`/members/${memberId}/send-invite`);
+    return response.data;
+  },
 };

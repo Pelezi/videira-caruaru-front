@@ -62,6 +62,7 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
   const [allMembers, setAllMembers] = useState<Member[]>([]);
   const [loadingCep, setLoadingCep] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isResendingInvite, setIsResendingInvite] = useState(false);
 
   // Validação
   const [touched, setTouched] = useState({
@@ -870,7 +871,36 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
                         type="button"
                         onClick={async () => {
                           if (!member?.id || member?.hasLoggedIn || !canManageSystemAccess) return;
+                          
+                          setIsResendingInvite(true);
                           try {
+                            // Verificar se email ou phone mudaram
+                            const originalEmail = member.email ?? '';
+                            const originalPhone = member.phone ? ensureCountryCode(member.phone) : '';
+                            const currentEmail = email;
+                            const currentPhone = stripPhoneFormatting(phone);
+                            
+                            const emailChanged = originalEmail !== currentEmail;
+                            const phoneChanged = originalPhone !== currentPhone;
+                            
+                            // Se mudaram, salvar primeiro
+                            if (emailChanged || phoneChanged) {
+                              const updateData: Partial<Member> = {};
+                              
+                              if (emailChanged) {
+                                updateData.email = currentEmail;
+                              }
+                              
+                              if (phoneChanged) {
+                                updateData.phone = currentPhone;
+                              }
+                              
+                              // Salvar as mudanças
+                              await onSave(updateData);
+                              toast.success('Dados atualizados antes de reenviar o convite');
+                            }
+                            
+                            // Reenviar convite
                             const response = await memberService.resendInvite(member.id);
                             const message = response.whatsappSent
                               ? 'Convite reenviado por email e WhatsApp!'
@@ -878,9 +908,11 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
                             toast.success(message);
                           } catch (err: any) {
                             toast.error(err.response?.data?.message || 'Erro ao reenviar convite');
+                          } finally {
+                            setIsResendingInvite(false);
                           }
                         }}
-                        disabled={member?.hasLoggedIn || !canManageSystemAccess}
+                        disabled={member?.hasLoggedIn || !canManageSystemAccess || isResendingInvite}
                         title={
                           !canManageSystemAccess
                             ? 'Você não tem permissão para reenviar convites'
@@ -888,12 +920,12 @@ export default function MemberModal({ member, isOpen, onClose, onSave, celulas =
                               ? 'Este usuário já recebeu o convite e conseguiu acessar o sistema'
                               : 'Reenviar convite por email e WhatsApp'
                         }
-                        className={`border rounded p-2 text-sm font-medium flex-1 transition-colors ${member?.hasLoggedIn || !canManageSystemAccess
+                        className={`border rounded p-2 text-sm font-medium flex-1 transition-colors ${member?.hasLoggedIn || !canManageSystemAccess || isResendingInvite
                             ? 'bg-gray-400 text-gray-700 cursor-not-allowed opacity-60'
                             : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
                           }`}
                       >
-                        Reenviar Convite
+                        {isResendingInvite ? 'Reenviando...' : 'Reenviar Convite'}
                       </button>
                     )}
                   </div>

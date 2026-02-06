@@ -118,9 +118,9 @@ export default function ReportPage() {
     if (todayIsValid) {
       setReportDate(today);
     } else if (validDates.length > 0) {
-      // Selecionar a próxima data válida
-      const nextValidDate = validDates.find(d => d.isAfter(today, 'day'));
-      setReportDate(nextValidDate || validDates[0]);
+      // Selecionar a data válida anterior mais próxima
+      const previousValidDate = [...validDates].reverse().find(d => d.isBefore(today, 'day'));
+      setReportDate(previousValidDate || validDates[0]);
     } else {
       setReportDate(today);
     }

@@ -56,7 +56,6 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchFilterOptions = async () => {
       try {
-        console.log('Permissões do usuário:', user?.permission);
         if (isPastor) {
           // Pastores podem ver todas as redes
           const redesData = await redesService.getRedes();

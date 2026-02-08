@@ -1,6 +1,11 @@
 import api from '@/lib/apiClient';
 import { ReportCreateInput, PresenceData, Member, Discipulado } from '@/types';
 
+interface ReportDatesResponse {
+  celulaDates: string[];
+  cultoDates: string[];
+}
+
 interface MonthReportData {
   date: string;
   present: Member[];
@@ -35,6 +40,16 @@ export const reportsService = {
     const res = await api.post(`/celulas/${celulaId}/reports`, data);
     return res.data;
   },
+  getReportDates: async (celulaId: number): Promise<ReportDatesResponse> => {
+    const res = await api.get<ReportDatesResponse>(`/celulas/${celulaId}/reports/dates`);
+    return res.data;
+  },
+  checkReportExists: async (celulaId: number, date: string, type: 'CELULA' | 'CULTO'): Promise<{ exists: boolean; report: any }> => {
+    const res = await api.get<{ exists: boolean; report: any }>(`/celulas/${celulaId}/reports/check`, {
+      params: { date, type }
+    });
+    return res.data;
+  },
   getRecentPresences: async (celulaId: number): Promise<PresenceData[]> => {
     const res = await api.get<PresenceData[]>(`/celulas/${celulaId}/reports/presences`);
     return res.data;
@@ -43,7 +58,7 @@ export const reportsService = {
     const res = await api.get<MonthReportsResponse>(`/celulas/${celulaId}/reports/by-month/${year}/${month}`);
     return res.data;
   },
-  getReportsByFilter: async (
+  getReportsByFilter: async(
     year: number, 
     month: number, 
     filters: { 

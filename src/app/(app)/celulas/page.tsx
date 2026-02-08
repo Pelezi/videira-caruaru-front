@@ -63,7 +63,7 @@ export default function CelulasPage() {
   const [showOldLeaderDropdown, setShowOldLeaderDropdown] = useState(false);
   const oldLeaderDropdownRef = useRef<HTMLDivElement>(null);
 
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return document.documentElement.classList.contains('dark');
@@ -116,8 +116,8 @@ export default function CelulasPage() {
   }, [showFilterLeaderDropdown, showNewLeaderDropdown, showOldLeaderDropdown]);
 
   const load = async () => {
-    // Aguardar inicialização dos filtros
-    if (!filtersInitialized.current) {
+    // Aguardar inicialização dos filtros e autenticação
+    if (!filtersInitialized.current || authLoading) {
       return;
     }
     
@@ -156,14 +156,15 @@ export default function CelulasPage() {
 
   useEffect(() => {
     // Apenas carregar após os filtros serem inicializados
-    if (filtersInitialized.current) {
+    if (filtersInitialized.current && !authLoading) {
       const run = async () => { await load(); };
       run();
     }
-  }, [filtersInitialized.current]);
+  }, [filtersInitialized.current, authLoading]);
 
   useEffect(() => {
     const loadFilters = async () => {
+      if (authLoading) return;
       try {
         // Carregar apenas usuários que podem ser líderes (PRESIDENT_PASTOR, PASTOR, DISCIPULADOR, LEADER ou LEADER_IN_TRAINING)
         const u = await memberService.list({ ministryType: 'PRESIDENT_PASTOR,PASTOR,DISCIPULADOR,LEADER,LEADER_IN_TRAINING' });
@@ -225,14 +226,14 @@ export default function CelulasPage() {
       }
     };
     loadFilters();
-  }, [user]);
+  }, [user, authLoading]);
 
   // Re-load when filters change
   useEffect(() => {
-    if (filtersInitialized.current) {
+    if (filtersInitialized.current && !authLoading) {
       load();
     }
-  }, [filterName, filterRedeId, filterDiscipuladoId, filterLeaderId]);
+  }, [filterName, filterRedeId, filterDiscipuladoId, filterLeaderId, authLoading]);
 
   const handleSaveCelula = async (data: { 
     name: string; 

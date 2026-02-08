@@ -27,28 +27,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshUser = useCallback(async () => {
+    setIsLoading(true);
     const updatedUser = await authService.refreshCurrentUser();
     if (updatedUser) {
       setUser(updatedUser);
     }
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
-    // Check if user is already logged in from localStorage
-    // This is intentionally done in useEffect to initialize state on mount
-    const initUser = authService.getCurrentUser();
-    const initMatrix = authService.getCurrentMatrix();
-    const initMatrices = authService.getMatrices();
+    const initialize = async () => {
+      // Check if user is already logged in from localStorage
+      // This is intentionally done in useEffect to initialize state on mount
+      const initUser = authService.getCurrentUser();
+      const initMatrix = authService.getCurrentMatrix();
+      const initMatrices = authService.getMatrices();
+      
+      if (initUser) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setUser(initUser);
+        setCurrentMatrix(initMatrix);
+        setMatrices(initMatrices);
+        // Refresh user data on page load to get latest permissions
+        await refreshUser();
+      } else {
+        setIsLoading(false);
+      }
+    };
     
-    if (initUser) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setUser(initUser);
-      setCurrentMatrix(initMatrix);
-      setMatrices(initMatrices);
-      // Refresh user data on page load to get latest permissions
-      refreshUser();
-    }
-    setIsLoading(false);
+    initialize();
   }, [refreshUser]);
 
   const login = async (email: string, password: string) => {
@@ -68,9 +75,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // From here, response is an AuthResponse with matrix info
     const auth = response as MatrixAuthResponse;
+    // Backend now returns 'member' field instead of 'user'
+    const memberData = (auth as any).member || auth.user;
     const mergedUser: Member = {
-      ...auth.user,
-      permission: auth.permission ?? auth.user.permission ?? null,
+      ...memberData,
+      permission: auth.permission ?? memberData.permission ?? null,
     };
     
     setUser(mergedUser);

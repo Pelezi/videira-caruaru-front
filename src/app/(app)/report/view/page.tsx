@@ -42,7 +42,7 @@ interface CelulaReportData {
 type FilterType = 'celula' | 'discipulado' | 'rede';
 
 export default function ViewReportPage() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   
   // Listas de opções
   const [redes, setRedes] = useState<Rede[]>([]);
@@ -82,6 +82,7 @@ export default function ViewReportPage() {
   // Carregar dados iniciais
   useEffect(() => {
     const loadData = async () => {
+      if (authLoading) return;
       try {
         const [redesData, discipuladosData, celulasData] = await Promise.all([
           redesService.getRedes(),
@@ -129,7 +130,7 @@ export default function ViewReportPage() {
       }
     };
     loadData();
-  }, [user]);
+  }, [user, authLoading]);
 
   // Filtrar discipulados baseado na rede selecionada
   const filteredDiscipulados = selectedRedeId

@@ -9,7 +9,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { formatPhoneForDisplay } from '@/lib/phoneUtils';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [profile, setProfile] = useState<Member | null>(null);
   const [loading, setLoading] = useState(true);
 

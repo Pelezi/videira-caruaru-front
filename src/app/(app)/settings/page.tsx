@@ -628,7 +628,7 @@ function ConfirmationModal({
 }
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('ministries');
   
   // Roles
@@ -668,13 +668,14 @@ export default function SettingsPage() {
   );
 
   useEffect(() => {
+    if (authLoading) return;
     loadRoles();
     loadMinistries();
     loadWinnerPaths();
     if (user?.isOwner) {
       loadApiKeys();
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   // Roles functions
   const loadRoles = async () => {

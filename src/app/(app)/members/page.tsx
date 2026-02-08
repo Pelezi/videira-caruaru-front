@@ -14,7 +14,7 @@ import MemberViewModal from '@/components/MemberViewModal';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function MembersManagementPage() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [celulas, setCelulas] = useState<Celula[]>([]);
   const [discipulados, setDiscipulados] = useState<Discipulado[]>([]);
   const [redes, setRedes] = useState<Rede[]>([]);
@@ -71,6 +71,7 @@ export default function MembersManagementPage() {
 
   useEffect(() => {
     const loadFilters = async () => {
+      if (authLoading) return;
       try {
         const [c, d, r] = await Promise.all([
           celulasService.getCelulas(),
@@ -128,12 +129,12 @@ export default function MembersManagementPage() {
       }
     };
     loadFilters();
-  }, [user]);
+  }, [user, authLoading]);
 
   useEffect(() => {
     const loadMembers = async () => {
-      // Aguardar inicialização dos filtros
-      if (!filtersInitialized.current) {
+      // Aguardar inicialização dos filtros e autenticação
+      if (!filtersInitialized.current || authLoading) {
         return;
       }
       
@@ -155,7 +156,7 @@ export default function MembersManagementPage() {
       }
     };
     loadMembers();
-  }, [filterCelulaId, filterDiscipuladoId, filterRedeId]);
+  }, [filterCelulaId, filterDiscipuladoId, filterRedeId, authLoading]);
 
   const openEditModal = (m: Member) => {
     setModalMember(m);

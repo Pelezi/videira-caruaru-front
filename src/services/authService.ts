@@ -34,10 +34,12 @@ export const authService = {
         apiClient.setRefreshToken(auth.refreshToken);
       }
       if (typeof window !== 'undefined') {
+        // Backend now returns 'member' field instead of 'user'
+        const memberData = auth.member || auth.user;
         // Merge top-level permission into the persisted user when present
         const userToPersist = auth.permission
-          ? { ...auth.user, permission: auth.permission }
-          : auth.user;
+          ? { ...memberData, permission: auth.permission }
+          : memberData;
         localStorage.setItem('user', JSON.stringify(userToPersist));
         
         // Store matrix info
@@ -154,9 +156,9 @@ export const authService = {
     if (!currentUser) return null;
 
     try {
-      // Use the new refresh endpoint that returns updated user data and permissions
-      const response = await api.get<{ user: Member; permission: any }>('/auth/refresh');
-      const { user: updatedMemberData, permission: updatedPermission } = response.data;
+      // Use the refresh endpoint that returns updated user data and permissions
+      const response = await api.get<{ member: Member; permission: any; currentMatrix?: { id: number; name: string }; matrices?: Matrix[] }>('/auth/refresh');
+      const { member: updatedMemberData, permission: updatedPermission, currentMatrix, matrices } = response.data;
       
       // Merge the updated permission into the user data
       const updatedUser: Member = {
@@ -165,6 +167,15 @@ export const authService = {
       };
       
       authService.setCurrentUser(updatedUser);
+      
+      // Update matrix info if provided
+      if (currentMatrix) {
+        authService.setCurrentMatrix(currentMatrix);
+      }
+      if (matrices) {
+        authService.setMatrices(matrices);
+      }
+      
       return updatedUser;
     } catch (error) {
       console.error('Failed to refresh user:', error);

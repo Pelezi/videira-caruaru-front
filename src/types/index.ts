@@ -38,7 +38,8 @@ export interface Permission {
 export interface AuthResponse {
   token: string;
   refreshToken?: string;
-  user: Member;
+  member: Member;  // Changed from 'user' to 'member' to match backend
+  user?: Member;   // Keep 'user' for backward compatibility
   permission?: Permission | null;
 }
 
@@ -215,6 +216,8 @@ export interface ReportCreateInput {
   memberIds: number[];
   /** Optional date for the report in yyyy-mm-dd format (defaults to today) */
   date?: string;
+  /** Report type: CELULA or CULTO */
+  type?: 'CELULA' | 'CULTO';
 }
 
 export interface PermissionUpsertInput {

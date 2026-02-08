@@ -3,6 +3,7 @@ import { Celula } from "@/types";
 
 export const celulasService = {
   getCelulas: async (options?: {
+    viceLeaderMemberId?: number;
     leaderMemberId?: number;
     discipuladoId?: number;
     redeId?: number;
